@@ -85,7 +85,7 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
     _transposeRuleField(resourcePath: string, fieldRuleResource: FieldRuleReference | string) {
         if (typeof fieldRuleResource === "string") return fieldRuleResource
         else if (fieldRuleResource.collectionRef) return `get(${fieldRuleResource}).data.${this.name}`
-        return `${resourcePath}.${fieldRuleResource.field}`
+        return `${resourcePath}${fieldRuleResource.field}`
     }
 
     _transposeCondition(resourcePath: string, condition: RuleCondition) {
@@ -106,7 +106,6 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
                 return this._transposeRule(resourcePath, condition)
             })
 
-        console.log(_rule)
         return _rule
 
     }
@@ -119,8 +118,8 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
         rules.unshift({
             type: "and",
             conditions: [
-                `${resource}.keys().hasAll([${this.fields.filter(i => !i.isOptional).map(f => `'${f.name}'`).join(", ")}])`,
-                `${resource}.keys().hasOnly([${this.fields.map(f => `'${f.name}'`).join(", ")}])`
+                `${resource}keys().hasAll([${this.fields.filter(i => !i.isOptional).map(f => `'${f.name}'`).join(", ")}])`,
+                `${resource}keys().hasOnly([${this.fields.map(f => `'${f.name}'`).join(", ")}])`
             ]
         })
         return {type: "and", conditions: rules}
@@ -133,13 +132,13 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
             `match ${this.relativePath} {`,
             [
                 "function isValidSchema(data) {",
-                ["return " + rulesToString(this._buildSchemaWriteRules("data"))] + ";",
+                ["return " + rulesToString(this._buildSchemaWriteRules("data.")) + ";"],
                 "}",
-                `allow get: if ${rulesToString(this._transposeRule("resource.data", this.#allowGetIf))};`,
+                `allow get: if ${rulesToString(this._transposeRule("resource.data.", this.#allowGetIf))};`,
                 `allow create: if ${rulesToString({
                     type: "and",
                     conditions: [
-                        rulesToString(this._transposeRule("request.resource.data", this.#allowCreateIf)),
+                        rulesToString(this._transposeRule("request.resource.data.", this.#allowCreateIf)),
                         "isValidSchema(request.resource)"
                     ]
                 })};`,
@@ -148,25 +147,14 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
                     conditions: [
                         "isValidSchema(request.resource)",
                         this._transposeRule("resource.data", this.#allowUpdateIf),
-                        this.#preventAccessBlockingEdits ? this._transposeRule("request.resource.data", this.#allowUpdateIf) : undefined
+                        this.#preventAccessBlockingEdits ? this._transposeRule("request.resource.data.", this.#allowUpdateIf) : undefined
                     ]
                 })};`,
-                `allow list: if ${rulesToString(this._transposeRule("request.resource.data", this.#allowListIf))};`,
-                `allow delete: if ${rulesToString(this._transposeRule("request.resource.data", this.#allowDeleteIf))};`,
+                `allow list: if ${rulesToString(this._transposeRule("request.resource.data.", this.#allowListIf))};`,
+                `allow delete: if ${rulesToString(this._transposeRule("request.resource.data.", this.#allowDeleteIf))};`,
                 ...this.#collections.map(c => c._build()).flat(1)
             ],
             "}"
         ]
     }
 }
-
-export type CollectionType<FIELDS extends {}, COLLECTIONS extends Record<string, Collection<any, any>>, T = Collection<FIELDS, COLLECTIONS>> = {
-    fields: FIELDS,
-    f: FIELDS,
-    collections: CollectionObjectType<COLLECTIONS>
-    c: CollectionObjectType<COLLECTIONS>
-}
-
-export type CollectionObjectType<T extends Record<string, Collection<{}, {}>>> = {
-    [K in keyof T]: T[K] extends Collection<infer FIELDS, infer COLLECTIONS> ? CollectionType<FIELDS, COLLECTIONS> : never;
-};

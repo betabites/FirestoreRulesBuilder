@@ -1,6 +1,6 @@
 import {BaseCollection} from "./BaseCollection.js";
-import {Collection, CollectionObjectType} from "./Collection.js";
-import {BuildResult} from "../types.js";
+import {Collection} from "./Collection.js";
+import {BuildResult, CollectionObjectType} from "../types.js";
 
 export class RootDocument<COLLECTIONS extends Record<string, Collection<never, never>>> implements BaseCollection<Record<string, string>, COLLECTIONS> {
     #collections: Collection<never, never>[] = []
@@ -25,7 +25,7 @@ export class RootDocument<COLLECTIONS extends Record<string, Collection<never, n
         builder: (collection: Collection<{}, {}>) => RESULT
     ):
         RootDocument<COLLECTIONS & Record<NAME, RESULT>> {
-        this.#collections.push(builder(new Collection(name, documentIdVar)))
+        this.#collections.push(builder(new Collection(name, documentIdVar ?? "docId")))
         return this
     }
 

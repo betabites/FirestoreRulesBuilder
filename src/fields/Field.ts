@@ -39,7 +39,7 @@ type Append<OLD_TYPES, NEW_TYPE> = Field<Exclude<OLD_TYPES, never> | NEW_TYPE>
 
 export class Field<T = never> implements BasicField<T> {
     #editableType: EditableTypes
-    #fieldTypeRules = new Map<FieldTypes, Rule | RuleCondition | FieldMap | null>()
+    #fieldTypeRules = new Map<FieldTypes, Rule | RuleCondition | FieldMap | Field | null>()
     readonly name: string
     isOptional = false
 
@@ -49,7 +49,7 @@ export class Field<T = never> implements BasicField<T> {
     }
     optional(): Append<this, undefined> { this.isOptional = true; return this }
     any(rule: Rule | RuleCondition | null = null): Omit<
-        Append<T, null>,
+        Append<T, any>,
         "nullable"
         | "string"
         | "integer"
@@ -84,14 +84,19 @@ export class Field<T = never> implements BasicField<T> {
         }
         this.#fieldTypeRules.set(FieldTypes.ENUM, _rule); return this
     }
-    array(rule: Rule | RuleCondition | null = null): Append<T, unknown> { this.#fieldTypeRules.set(FieldTypes.LIST, rule); return this }
+    nativeEnum<T extends {[key: string | number]: string | number}>(values: T, rule: Rule | RuleCondition | null = null): Append<T, T> {
+        return this.enum(Object.values(values), rule)
+    }
+    list<V>(builder: (field: Field) => Field<V>, rule: Rule | RuleCondition | null = null): Append<T, V[]> {
+        this.#fieldTypeRules.set(FieldTypes.LIST, builder(new Field<never>("element"))); return this
+    }
     map(builder: (map: FieldMap) => FieldMap): Append<T, unknown> { this.#fieldTypeRules.set(FieldTypes.MAP, builder(new FieldMap(this.name))); return this }
 
     _transposeRuleResource(resourcePath: string, fieldRuleResource: FieldRuleReference | string) {
         if (typeof fieldRuleResource === "string") return fieldRuleResource
-        else if (fieldRuleResource.field === "this") return `${resourcePath}.${this.name}`
+        else if (fieldRuleResource.field === "this") return `${resourcePath}${this.name}`
         else if (fieldRuleResource.collectionRef) return `get(${fieldRuleResource}).data.${this.name}`
-        return `${resourcePath}.${fieldRuleResource.field}`
+        return `${resourcePath}${fieldRuleResource.field}`
     }
 
     _transposeCondition(resourcePath: string, condition: RuleCondition) {
@@ -118,42 +123,45 @@ export class Field<T = never> implements BasicField<T> {
 
             switch (fieldTypeRule[0]) {
                 case FieldTypes.STRING:
-                    subRule.conditions.push(`${resource}.${this.name} is string`);
+                    subRule.conditions.push(`${resource}${this.name} is string`);
                     break
                 case FieldTypes.NULL:
-                    subRule.conditions.push(`${resource}.${this.name} == null`);
+                    subRule.conditions.push(`${resource}${this.name} == null`);
                     break
                 case FieldTypes.INTEGER:
-                    subRule.conditions.push(`${resource}.${this.name} is int`);
+                    subRule.conditions.push(`${resource}${this.name} is int`);
                     break
                 case FieldTypes.FLOAT:
-                    subRule.conditions.push(`${resource}.${this.name} is float`);
+                    subRule.conditions.push(`${resource}${this.name} is float`);
                     break
                 case FieldTypes.NUMBER:
-                    subRule.conditions.push(`${resource}.${this.name} is number`);
+                    subRule.conditions.push(`${resource}${this.name} is number`);
                     break
                 case FieldTypes.BOOLEAN:
-                    subRule.conditions.push(`${resource}.${this.name} is bool`);
+                    subRule.conditions.push(`${resource}${this.name} is bool`);
                     break
                 case FieldTypes.TIMESTAMP:
-                    subRule.conditions.push(`${resource}.${this.name} is timestamp`);
+                    subRule.conditions.push(`${resource}${this.name} is timestamp`);
                     break
                 case FieldTypes.DURATION:
-                    subRule.conditions.push(`${resource}.${this.name} is duration`);
+                    subRule.conditions.push(`${resource}${this.name} is duration`);
                     break
                 case FieldTypes.LATLNG:
-                    subRule.conditions.push(`${resource}.${this.name} is latlng`);
+                    subRule.conditions.push(`${resource}${this.name} is latlng`);
                     break
                 case FieldTypes.REFERENCE:
-                    subRule.conditions.push(`${resource}.${this.name} is path`);
+                    subRule.conditions.push(`${resource}${this.name} is path`);
                     break
                 case FieldTypes.LIST:
-                    subRule.conditions.push(`${resource}.${this.name} is list`);
+                    subRule.conditions.push(`${resource}${this.name} is list`);
+                    if (fieldTypeRule[1] instanceof Field) {
+                        subRule.conditions.push(`${resource}${this.name}.all(element => ${fieldTypeRule[1]._buildRules("element")})`);
+                    }
                     break
                 case FieldTypes.MAP:
-                    subRule.conditions.push(`${resource}.${this.name} is map`);
+                    subRule.conditions.push(`${resource}${this.name} is map`);
                     if (fieldTypeRule[1] instanceof FieldMap) {
-                        subRule.conditions.push({type: "and", conditions: fieldTypeRule[1]._build(resource)})
+                        subRule.conditions.push({type: "and", conditions: fieldTypeRule[1]._build(resource + this.name + ".")})
                     }
                     break
                 case FieldTypes.ENUM:
@@ -163,14 +171,17 @@ export class Field<T = never> implements BasicField<T> {
 
             if (fieldTypeRule[1]) {
                 if (Array.isArray(fieldTypeRule[1])) subRule.conditions.push(this._transposeCondition(resource, fieldTypeRule[1]))
-                else if (fieldTypeRule[1] instanceof FieldMap) continue
+                else if (fieldTypeRule[1] instanceof FieldMap) {}
+                else if (fieldTypeRule[1] instanceof Field) {}
                 else subRule.conditions.push(this._transposeRule(resource, fieldTypeRule[1]))
             }
 
-            if (subRule.conditions.length !== 0) rule.conditions.push(subRule)
+            if (subRule.conditions.length !== 0) {
+                rule.conditions.push(subRule)
+            }
         }
 
-        console.log(rule)
+        console.log(JSON.stringify(rule))
         return rule
     }
 }
@@ -190,8 +201,12 @@ export class FieldMap<T = Record<string, never>> {
     }
 
     _build(resourcePath: string) {
-        const _resourcePath = `${resourcePath}.${this.name}`
+        const _resourcePath = `${resourcePath}${this.name}`
         let rules = this.fields.map(field => field._buildRules(_resourcePath))
-        return rules
+        return [
+            `${resourcePath}keys().hasAll([${this.fields.filter(i => !i.isOptional).map(f => `'${f.name}'`).join(", ")}])`,
+            `${resourcePath}keys().hasOnly([${this.fields.map(f => `'${f.name}'`).join(", ")}])`,
+            ...rules
+        ]
     }
 }

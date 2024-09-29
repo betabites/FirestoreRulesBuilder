@@ -1,40 +1,4 @@
-export type Field<T extends string> = {
-    dataType: T,
-    isOptional?: boolean
-
-    modifyRules?: {}
-}
-
-export type StringField = Field<"string">
-export type NumberField = Field<"number">
-export type BooleanField = Field<"boolean">
-export type NullField = Field<"null">
-export type TimestampField = Field<"timestamp">
-export type GeopointField = Field<"geopoint">
-export type ReferenceField = Field<"reference">
-export type ArrayField = Field<"array"> & {
-    fields: BasicFieldTypes[]
-}
-export type MapField = Field<"map"> & {
-    fields: { [key: string]: BasicFieldTypes }
-}
-
-export type BasicFieldTypes = StringField
-| NumberField
-| BooleanField
-| NullField
-| TimestampField
-| GeopointField
-| ReferenceField
-| ArrayField
-| MapField
-
-export type Collection = {
-    fields: {
-        [key: string]: BasicFieldTypes
-    }
-    collections?: Record<string, Collection>
-}
+import {Collection} from "./collections/Collection.js";
 
 export type FieldRuleReference = {
     field: "this" | string
@@ -65,3 +29,14 @@ export type RuleStringConditions = {
 }
 
 export type BuildResult = (string | BuildResult)[]
+
+export type CollectionType<FIELDS extends {}, COLLECTIONS extends Record<string, Collection<any, any>>, T = Collection<FIELDS, COLLECTIONS>> = {
+    fields: FIELDS,
+    f: FIELDS,
+    collections: CollectionObjectType<COLLECTIONS>
+    c: CollectionObjectType<COLLECTIONS>
+}
+
+export type CollectionObjectType<T extends Record<string, Collection<{}, {}>>> = {
+    [K in keyof T]: T[K] extends Collection<infer FIELDS, infer COLLECTIONS> ? CollectionType<FIELDS, COLLECTIONS> : never;
+};

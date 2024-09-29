@@ -2,17 +2,19 @@
 
 TypeScript-based tool for building secure Firestore rules
 
-<!-- TOC -->
+> Note: This package is currently in alpha. Expect some weird quirks and incomplete features.
 
+<!-- TOC -->
 * [Firestore Rules Builder](#firestore-rules-builder)
 * [Installation](#installation)
-    * [Why Firestore Rules Builder](#why-firestore-rules-builder)
-    * [What does Firestore Rules Builder do?](#what-does-firestore-rules-builder-do)
+* [Overview](#overview)
+* [Why Firestore Rules Builder](#why-firestore-rules-builder)
+* [What does Firestore Rules Builder do?](#what-does-firestore-rules-builder-do)
 * [WARNINGS](#warnings)
 * [Defining a schema](#defining-a-schema)
-    * [Defining additional schema rules](#defining-additional-schema-rules)
+  * [Nested collections](#nested-collections)
+  * [Defining additional schema rules](#defining-additional-schema-rules)
 * [Defining access rules](#defining-access-rules)
-
 <!-- TOC -->
 
 # Installation
@@ -23,33 +25,39 @@ This package can easily be installed via Node Package Manager (NPM):
 npm install --save-dev firestore-rules-builder
 ```
 
-## Why Firestore Rules Builder
+# Overview
 
-A common problem with many Firestore projects is the Firestore rules. Often, the rules are misconfigured, leading to errors such as unexpected types and problems where users can access and modify other user data.
+This tool helps in defining structured and secure rules for Firestore databases in TypeScript.
 
-In a traditional database sense, problems such as these would be solved by a server placed between the client and the database. The server would mediate what the client has access to and have complete control over data validation. However, in a Firestore situation, there is no server in between. The client interacts directly with the database. This means that the database needs to define any data validation and access rules.
+# Why Firestore Rules Builder
+
+A common problem with many Firestore projects is the Firestore rules. Often, the rules are misconfigured, leading to
+errors such as unexpected types and problems where users can access and modify other user data.
+
+In a traditional database sense, problems such as these would be solved by a server placed between the client and the
+database. The server would mediate what the client has access to and have complete control over data validation.
+However, in a Firestore situation, there is no server in between. The client interacts directly with the database. This
+means that the database needs to define any data validation and access rules.
 
 This is where Firestore rules come in. Firestore rules determine what, when, and why any given user can access data.
 When used properly, this can be extremely powerful. Limiting a given user to accessing only their own data.
 
-However, these rules are often extremely tedious to configure and usually have massive loopholes that cause excessive problems.
+However, these rules are often extremely tedious to configure and usually have massive loopholes that cause excessive
+problems.
 
-## What does Firestore Rules Builder do?
+# What does Firestore Rules Builder do?
 
-- Build rules that enforce a data schema
-    - A common problem with Firestore databases is that the actual type of data isn't enforced. This means that while
-      your program might *expect* a number, it *could* get a string instead.
-    - Firestore Rules Builder allows you to define the data types of each of your fields, and will build rules that
-      ensure these data types are met.
-- Encourage secure practices
-    - Firestore Rules Builder encourages the idea of 'default deny'. Firestore
-      Rules Builder will always deny access to a given resource to everyone, unless you specify in your rules who should
-      have it.
-- In-built typescript types
-    - We want to make it as easy as possible to access and modify your rules. We believe that doing this encourages you
-      to make more secure choices, as it is less tedious to change your rules.
-    - One of the ways we do this is by integrating with TypeScript. Document type definitions can be inferred from your
-      rules/schema! This means that the instant you change your schema, your types also update!
+- **Data Schema Enforcement**:
+    - Ensures that your Firestore database enforces data types, preventing type-related issues.
+    - Allows definition of the data types for each field, generating rules to ensure compliance.
+
+- **Encourages Secure Practices**:
+    - Implements a 'default deny' approach, denying access by default and only granting it when explicitly specified.
+
+- **In-built TypeScript Types**:
+    - Facilitates easy access and modification of rules, encouraging secure practices.
+    - Integrates with TypeScript to infer document type definitions from your rules/schema, ensuring that type updates
+      reflect changes in schema instantly.
 
 # WARNINGS
 
@@ -67,7 +75,7 @@ A few warnings before using this building tool:
 Schemas are defined through the `RootDocument` object. You can define a schema as shown below:
 
 ```typescript
-import {RootDocument} from "./RootDocument.js";
+import {RootDocument} from "firestore-rules-builder";
 import {writeFileSync} from "fs";
 
 // 'Root Document' refers to the root level of your database
@@ -85,7 +93,7 @@ writeFileSync("firestore.rules", root.toString())
 Collections nested within each other can be defined as such:
 
 ```typescript
-import {RootDocument} from "./RootDocument.js";
+import {RootDocument} from "firestore-rules-builder";
 import {writeFileSync} from "fs";
 
 // 'Root Document' refers to the root level of your database
@@ -131,7 +139,7 @@ Defining access rules is an important part of security. The code below shows an 
 document if the `userId` field within the document matches their ID.
 
 ```typescript
-import {RootDocument} from "./RootDocument.js";
+import {RootDocument} from "firestore-rules-builder";
 import {writeFileSync} from "fs";
 
 // 'Root Document' refers to the root level of your database
@@ -150,7 +158,7 @@ writeFileSync("firestore.rules", root.toString())
 Rules can be written in multiple ways. See the example below for all the different ways you can write rules.
 
 ```typescript
-import {RootDocument} from "./RootDocument.js";
+import {RootDocument} from "firestore-rules-builder";
 import {writeFileSync} from "fs";
 
 // 'Root Document' refers to the root level of your database
@@ -178,4 +186,32 @@ const root = new RootDocument()
         )
     )
 writeFileSync("firestore.rules", root.toString())
+```
+
+# Converting your schema to typescript types
+
+You can convert your schema into a typescript type using the `Infer<T>` generic type.
+
+```typescript
+import {RootDocument, Infer} from "firestore-rules-builder";
+
+const root = new RootDocument()
+    .collection("users", undefined, (c) => c
+        .field("username", (field) => field.string())
+        .collection("data", undefined, (c) => c
+            .field("some-data-field", (field) => field.number())
+        )
+    )
+
+type IRoot = Infer<typeof root>
+
+type IUser = IRoot["collections"]["users"]["fields"]
+type IUserData = IRoot["collections"]["users"]["collections"]["data"]["fields"]
+```
+
+These type definitions can get quite long. So to aid you, we've created this short-form that you can also use:
+
+```typescript
+type IUser = IRoot["c"]["users"]["f"]
+type IUserData = IRoot["c"]["users"]["c"]["data"]["f"]
 ```
