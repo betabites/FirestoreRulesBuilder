@@ -1,0 +1,5 @@
+# Project exclude paths
+/__tests__/firestoreRules.test.js
+/__tests__/test.js
+/src/removeBlankConditions.js
+/src/rulesToString.js

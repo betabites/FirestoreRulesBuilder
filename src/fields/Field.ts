@@ -1,5 +1,6 @@
 import {FieldRuleReference, Rule, RuleCondition, RuleStringConditions} from "../types.js";
 import {removeBlankConditions} from "../removeBlankConditions.js";
+import {type DocumentReference} from "firebase/firestore";
 
 type EditableTypes = "always"
 | "creationOnly"
@@ -12,6 +13,7 @@ type EditableTypes = "always"
  */
 enum FieldTypes {
     NULL,
+    ANY,
     STRING,
     INTEGER,
     FLOAT,
@@ -27,13 +29,15 @@ enum FieldTypes {
     ENUM
 }
 
-export type BasicField = {
+export type BasicField<T = never> = {
     name: string,
     isOptional: boolean,
     _buildRules(resource: string): RuleStringConditions
 }
 
-export class Field implements BasicField {
+type Append<OLD_TYPES, NEW_TYPE> = Field<Exclude<OLD_TYPES, never> | NEW_TYPE>
+
+export class Field<T = never> implements BasicField<T> {
     #editableType: EditableTypes
     #fieldTypeRules = new Map<FieldTypes, Rule | RuleCondition | FieldMap | null>()
     readonly name: string
@@ -43,18 +47,34 @@ export class Field implements BasicField {
         this.#editableType = editable ?? "always"
         this.name = name
     }
-    optional() { this.isOptional = true; return this }
-    nullable(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.NULL, rule); return this }
-    string(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.STRING, rule); return this }
-    integer(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.INTEGER, rule); return this }
-    float(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.FLOAT, rule); return this }
-    number(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.NUMBER, rule); return this }
-    boolean(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.BOOLEAN, rule); return this }
-    timestamp(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.TIMESTAMP, rule); return this }
-    duration(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.DURATION, rule); return this }
-    geopoint(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.LATLNG, rule); return this }
-    path(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.PATH, rule); return this }
-    enum(values: (number | string)[], rule: Rule | RuleCondition | null = null) {
+    optional(): Append<this, undefined> { this.isOptional = true; return this }
+    any(rule: Rule | RuleCondition | null = null): Omit<
+        Append<T, null>,
+        "nullable"
+        | "string"
+        | "integer"
+        | "float"
+        | "number"
+        | "boolean"
+        | "timestamp"
+        | "duration"
+        | "latlng"
+        | "path"
+        | "enum"
+        | "array"
+        | "map"
+    > { this.#fieldTypeRules.set(FieldTypes.ANY, rule); return this }
+    nullable(rule: Rule | RuleCondition | null = null): Append<T, null> { this.#fieldTypeRules.set(FieldTypes.NULL, rule); return this }
+    string(rule: Rule | RuleCondition | null = null): Append<T, string> { this.#fieldTypeRules.set(FieldTypes.STRING, rule); return this }
+    integer(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.INTEGER, rule); return this }
+    float(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.FLOAT, rule); return this }
+    number(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.NUMBER, rule); return this }
+    boolean(rule: Rule | RuleCondition | null = null): Append<T, boolean> { this.#fieldTypeRules.set(FieldTypes.BOOLEAN, rule); return this }
+    timestamp(rule: Rule | RuleCondition | null = null): Append<T, Date> { this.#fieldTypeRules.set(FieldTypes.TIMESTAMP, rule); return this }
+    duration(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.DURATION, rule); return this }
+    latlng(rule: Rule | RuleCondition | null = null): Append<T, {latitude: number, longitude: number}> { this.#fieldTypeRules.set(FieldTypes.LATLNG, rule); return this }
+    path(rule: Rule | RuleCondition | null = null): Append<T, DocumentReference> { this.#fieldTypeRules.set(FieldTypes.PATH, rule); return this }
+    enum<T extends number | string>(values: T[], rule: Rule | RuleCondition | null = null): Append<T, T> {
         let _rule: Rule = {
             type: "and",
             conditions: [
@@ -64,8 +84,8 @@ export class Field implements BasicField {
         }
         this.#fieldTypeRules.set(FieldTypes.ENUM, _rule); return this
     }
-    array(rule: Rule | RuleCondition | null = null) { this.#fieldTypeRules.set(FieldTypes.LIST, rule); return this }
-    map(builder: (map: FieldMap) => FieldMap) { this.#fieldTypeRules.set(FieldTypes.MAP, builder(new FieldMap(this.name))); return this }
+    array(rule: Rule | RuleCondition | null = null): Append<T, unknown> { this.#fieldTypeRules.set(FieldTypes.LIST, rule); return this }
+    map(builder: (map: FieldMap) => FieldMap): Append<T, unknown> { this.#fieldTypeRules.set(FieldTypes.MAP, builder(new FieldMap(this.name))); return this }
 
     _transposeRuleResource(resourcePath: string, fieldRuleResource: FieldRuleReference | string) {
         if (typeof fieldRuleResource === "string") return fieldRuleResource
@@ -156,7 +176,7 @@ export class Field implements BasicField {
 }
 
 
-export class FieldMap {
+export class FieldMap<T = Record<string, never>> {
     protected fields: BasicField[] = [];
     readonly name: string
 
@@ -164,7 +184,7 @@ export class FieldMap {
         this.name = name
     }
 
-    field(name: string, func: (field: Field) => BasicField) {
+    field<FIELD_TYPE, NAME extends string>(name: NAME, func: (field: Field) => BasicField<FIELD_TYPE>): FieldMap<T & Record<NAME, FIELD_TYPE>> {
         this.fields.push(func(new Field(name)))
         return this
     }
