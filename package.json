@@ -1,0 +1,18 @@
+{
+  "name": "firestorerulesbuilder",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node __tests__/test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "@types/node": "^22.7.4",
+    "ajv-cli": "^5.0.0",
+    "typescript": "^5.6.2",
+    "yamljs": "^0.3.0"
+  }
+}
