@@ -139,13 +139,13 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
                     type: "and",
                     conditions: [
                         rulesToString(this._transposeRule("request.resource.data.", this.#allowCreateIf)),
-                        "isValidSchema(request.resource)"
+                        "isValidSchema(request.resource.data)"
                     ]
                 })};`,
                 `allow update: if ${rulesToString({
                     type: "and",
                     conditions: [
-                        "isValidSchema(request.resource)",
+                        "isValidSchema(request.resource.data)",
                         this._transposeRule("resource.data", this.#allowUpdateIf),
                         this.#preventAccessBlockingEdits ? this._transposeRule("request.resource.data.", this.#allowUpdateIf) : undefined
                     ]

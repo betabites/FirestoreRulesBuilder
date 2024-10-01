@@ -3,9 +3,9 @@ import {removeBlankConditions} from "../removeBlankConditions.js";
 import {type DocumentReference} from "firebase/firestore";
 
 type EditableTypes = "always"
-| "creationOnly"
-| "modificationOnly"
-| "never"
+    | "creationOnly"
+    | "modificationOnly"
+    | "never"
 
 /*
  * Data types are defined based on the types described in this video; https://www.youtube.com/watch?v=qbd_4LT0Y4s
@@ -39,7 +39,7 @@ type Append<OLD_TYPES, NEW_TYPE> = Field<Exclude<OLD_TYPES, never> | NEW_TYPE>
 
 export class Field<T = never> implements BasicField<T> {
     #editableType: EditableTypes
-    #fieldTypeRules = new Map<FieldTypes, Rule | RuleCondition | FieldMap | Field | null>()
+    #fieldTypeRules = new Map<FieldTypes, Rule | RuleCondition | FieldMap | null>()
     readonly name: string
     isOptional = false
 
@@ -47,7 +47,12 @@ export class Field<T = never> implements BasicField<T> {
         this.#editableType = editable ?? "always"
         this.name = name
     }
-    optional(): Append<this, undefined> { this.isOptional = true; return this }
+
+    optional(): Append<this, undefined> {
+        this.isOptional = true;
+        return this
+    }
+
     any(rule: Rule | RuleCondition | null = null): Omit<
         Append<T, any>,
         "nullable"
@@ -63,17 +68,72 @@ export class Field<T = never> implements BasicField<T> {
         | "enum"
         | "array"
         | "map"
-    > { this.#fieldTypeRules.set(FieldTypes.ANY, rule); return this }
-    nullable(rule: Rule | RuleCondition | null = null): Append<T, null> { this.#fieldTypeRules.set(FieldTypes.NULL, rule); return this }
-    string(rule: Rule | RuleCondition | null = null): Append<T, string> { this.#fieldTypeRules.set(FieldTypes.STRING, rule); return this }
-    integer(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.INTEGER, rule); return this }
-    float(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.FLOAT, rule); return this }
-    number(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.NUMBER, rule); return this }
-    boolean(rule: Rule | RuleCondition | null = null): Append<T, boolean> { this.#fieldTypeRules.set(FieldTypes.BOOLEAN, rule); return this }
-    timestamp(rule: Rule | RuleCondition | null = null): Append<T, Date> { this.#fieldTypeRules.set(FieldTypes.TIMESTAMP, rule); return this }
-    duration(rule: Rule | RuleCondition | null = null): Append<T, number> { this.#fieldTypeRules.set(FieldTypes.DURATION, rule); return this }
-    latlng(rule: Rule | RuleCondition | null = null): Append<T, {latitude: number, longitude: number}> { this.#fieldTypeRules.set(FieldTypes.LATLNG, rule); return this }
-    path(rule: Rule | RuleCondition | null = null): Append<T, DocumentReference> { this.#fieldTypeRules.set(FieldTypes.PATH, rule); return this }
+    > {
+        this.#fieldTypeRules.set(FieldTypes.ANY, rule);
+        return this
+    }
+
+    nullable(rule: Rule | RuleCondition | null = null): Append<T, null> {
+        this.#fieldTypeRules.set(FieldTypes.NULL, rule);
+        return this
+    }
+
+    string(rule: Rule | RuleCondition | null = null): Append<T, string> {
+        this.#fieldTypeRules.set(FieldTypes.STRING, rule);
+        return this
+    }
+
+    integer(rule: Rule | RuleCondition | null = null): Append<T, number> {
+        this.#fieldTypeRules.set(FieldTypes.INTEGER, rule);
+        return this
+    }
+
+    float(rule: Rule | RuleCondition | null = null): Append<T, number> {
+        this.#fieldTypeRules.set(FieldTypes.FLOAT, rule);
+        return this
+    }
+
+    number(rule: Rule | RuleCondition | null = null): Append<T, number> {
+        this.#fieldTypeRules.set(FieldTypes.NUMBER, rule);
+        return this
+    }
+
+    boolean(rule: Rule | RuleCondition | null = null): Append<T, boolean> {
+        this.#fieldTypeRules.set(FieldTypes.BOOLEAN, rule);
+        return this
+    }
+
+    timestamp(rule: Rule | RuleCondition | null = null): Append<T, Date> {
+        this.#fieldTypeRules.set(FieldTypes.TIMESTAMP, rule);
+        return this
+    }
+
+    duration(rule: Rule | RuleCondition | null = null): Append<T, number> {
+        this.#fieldTypeRules.set(FieldTypes.DURATION, rule);
+        return this
+    }
+
+    latlng(rule: Rule | RuleCondition | null = null): Append<T, { latitude: number, longitude: number }> {
+        this.#fieldTypeRules.set(FieldTypes.LATLNG, rule);
+        return this
+    }
+
+    path(rule: Rule | RuleCondition | null = null): Append<T, DocumentReference> {
+        this.#fieldTypeRules.set(FieldTypes.PATH, rule);
+        return this
+    }
+
+    /**
+     * @description THIS FUNCTION/TYPE IS UNSAFE.
+     * @warning Firestore Rules Builder cannot properly enforce a schema on lists. While we can enforce that the list
+     * exists and is in-fact a list, we cannot validate/verify its contents.
+     * @param rule
+     */
+    unsafeList<V = unknown>(rule: Rule | RuleCondition | null = null): Append<T, (V | unknown)[]> {
+        this.#fieldTypeRules.set(FieldTypes.LIST, rule);
+        return this
+    }
+
     enum<T extends number | string>(values: T[], rule: Rule | RuleCondition | null = null): Append<T, T> {
         let _rule: Rule = {
             type: "and",
@@ -82,15 +142,20 @@ export class Field<T = never> implements BasicField<T> {
                 rule
             ]
         }
-        this.#fieldTypeRules.set(FieldTypes.ENUM, _rule); return this
+        this.#fieldTypeRules.set(FieldTypes.ENUM, _rule);
+        return this
     }
-    nativeEnum<T extends {[key: string | number]: string | number}>(values: T, rule: Rule | RuleCondition | null = null): Append<T, T> {
+
+    nativeEnum<T extends {
+        [key: string | number]: string | number
+    }>(values: T, rule: Rule | RuleCondition | null = null): Append<T, T> {
         return this.enum(Object.values(values), rule)
     }
-    list<V>(builder: (field: Field) => Field<V>, rule: Rule | RuleCondition | null = null): Append<T, V[]> {
-        this.#fieldTypeRules.set(FieldTypes.LIST, builder(new Field<never>("element"))); return this
+
+    map(builder: (map: FieldMap) => FieldMap): Append<T, unknown> {
+        this.#fieldTypeRules.set(FieldTypes.MAP, builder(new FieldMap(this.name)));
+        return this
     }
-    map(builder: (map: FieldMap) => FieldMap): Append<T, unknown> { this.#fieldTypeRules.set(FieldTypes.MAP, builder(new FieldMap(this.name))); return this }
 
     _transposeRuleResource(resourcePath: string, fieldRuleResource: FieldRuleReference | string) {
         if (typeof fieldRuleResource === "string") return fieldRuleResource
@@ -154,25 +219,27 @@ export class Field<T = never> implements BasicField<T> {
                     break
                 case FieldTypes.LIST:
                     subRule.conditions.push(`${resource}${this.name} is list`);
-                    if (fieldTypeRule[1] instanceof Field) {
-                        subRule.conditions.push(`${resource}${this.name}.all(element => ${fieldTypeRule[1]._buildRules("element")})`);
-                    }
                     break
                 case FieldTypes.MAP:
                     subRule.conditions.push(`${resource}${this.name} is map`);
                     if (fieldTypeRule[1] instanceof FieldMap) {
-                        subRule.conditions.push({type: "and", conditions: fieldTypeRule[1]._build(resource + this.name + ".")})
+                        subRule.conditions.push({
+                            type: "and",
+                            conditions: fieldTypeRule[1]._build(resource + this.name + ".")
+                        })
                     }
                     break
                 case FieldTypes.ENUM:
-            //         Enums are handled by an automatically-created rule. See the enum() method
+                    //         Enums are handled by an automatically-created rule. See the enum() method
                     break
             }
 
             if (fieldTypeRule[1]) {
                 if (Array.isArray(fieldTypeRule[1])) subRule.conditions.push(this._transposeCondition(resource, fieldTypeRule[1]))
-                else if (fieldTypeRule[1] instanceof FieldMap) {}
-                else if (fieldTypeRule[1] instanceof Field) {}
+                else if (fieldTypeRule[1] instanceof FieldMap) {
+                }
+                else if (fieldTypeRule[1] instanceof Field) {
+                }
                 else subRule.conditions.push(this._transposeRule(resource, fieldTypeRule[1]))
             }
 

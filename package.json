@@ -1,7 +1,8 @@
 {
   "name": "firestore-rules-builder",
-  "version": "0.0.5-alpha",
-  "main": "src/index.js",
+  "version": "0.0.9-alpha",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
     "test": "node __tests__/test.js"
   },
@@ -9,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "files": [
-    "src/"
+    "dist/"
   ],
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
