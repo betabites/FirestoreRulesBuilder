@@ -1,6 +1,7 @@
 import {FieldRuleReference, Rule, RuleCondition, RuleStringConditions} from "../types.js";
 import {removeBlankConditions} from "../removeBlankConditions.js";
 import {type DocumentReference} from "firebase/firestore";
+import {FieldMap} from "./FieldMap.js";
 
 type EditableTypes = "always"
     | "creationOnly"
@@ -35,13 +36,14 @@ export type BasicField<T = never> = {
     _buildRules(resource: string): RuleStringConditions
 }
 
-type Append<OLD_TYPES, NEW_TYPE> = Field<Exclude<OLD_TYPES, never> | NEW_TYPE>
+type Append<OLD_TYPES, NEW_TYPE> = Field<OLD_TYPES | NEW_TYPE>
 
 export class Field<T = never> implements BasicField<T> {
     #editableType: EditableTypes
-    #fieldTypeRules = new Map<FieldTypes, Rule | RuleCondition | FieldMap | null>()
+    #fieldTypeRules = new Map<FieldTypes, Rule | RuleCondition | FieldMap<unknown> | null>()
     readonly name: string
     isOptional = false
+    rules: Rule[] = []
 
     constructor(name: string, editable?: EditableTypes) {
         this.#editableType = editable ?? "always"
@@ -50,110 +52,6 @@ export class Field<T = never> implements BasicField<T> {
 
     optional(): Append<this, undefined> {
         this.isOptional = true;
-        return this
-    }
-
-    any(rule: Rule | RuleCondition | null = null): Omit<
-        Append<T, any>,
-        "nullable"
-        | "string"
-        | "integer"
-        | "float"
-        | "number"
-        | "boolean"
-        | "timestamp"
-        | "duration"
-        | "latlng"
-        | "path"
-        | "enum"
-        | "array"
-        | "map"
-    > {
-        this.#fieldTypeRules.set(FieldTypes.ANY, rule);
-        return this
-    }
-
-    nullable(rule: Rule | RuleCondition | null = null): Append<T, null> {
-        this.#fieldTypeRules.set(FieldTypes.NULL, rule);
-        return this
-    }
-
-    string(rule: Rule | RuleCondition | null = null): Append<T, string> {
-        this.#fieldTypeRules.set(FieldTypes.STRING, rule);
-        return this
-    }
-
-    integer(rule: Rule | RuleCondition | null = null): Append<T, number> {
-        this.#fieldTypeRules.set(FieldTypes.INTEGER, rule);
-        return this
-    }
-
-    float(rule: Rule | RuleCondition | null = null): Append<T, number> {
-        this.#fieldTypeRules.set(FieldTypes.FLOAT, rule);
-        return this
-    }
-
-    number(rule: Rule | RuleCondition | null = null): Append<T, number> {
-        this.#fieldTypeRules.set(FieldTypes.NUMBER, rule);
-        return this
-    }
-
-    boolean(rule: Rule | RuleCondition | null = null): Append<T, boolean> {
-        this.#fieldTypeRules.set(FieldTypes.BOOLEAN, rule);
-        return this
-    }
-
-    timestamp(rule: Rule | RuleCondition | null = null): Append<T, Date> {
-        this.#fieldTypeRules.set(FieldTypes.TIMESTAMP, rule);
-        return this
-    }
-
-    duration(rule: Rule | RuleCondition | null = null): Append<T, number> {
-        this.#fieldTypeRules.set(FieldTypes.DURATION, rule);
-        return this
-    }
-
-    latlng(rule: Rule | RuleCondition | null = null): Append<T, { latitude: number, longitude: number }> {
-        this.#fieldTypeRules.set(FieldTypes.LATLNG, rule);
-        return this
-    }
-
-    path(rule: Rule | RuleCondition | null = null): Append<T, DocumentReference> {
-        this.#fieldTypeRules.set(FieldTypes.PATH, rule);
-        return this
-    }
-
-    /**
-     * @description THIS FUNCTION/TYPE IS UNSAFE.
-     * @warning Firestore Rules Builder cannot properly enforce a schema on lists. While we can enforce that the list
-     * exists and is in-fact a list, we cannot validate/verify its contents.
-     * @param rule
-     */
-    unsafeList<V = unknown>(rule: Rule | RuleCondition | null = null): Append<T, (V | unknown)[]> {
-        this.#fieldTypeRules.set(FieldTypes.LIST, rule);
-        return this
-    }
-
-    enum<T extends number | string>(values: T[], rule: Rule | RuleCondition | null = null): Append<T, T> {
-        let _rule: Rule = {
-            type: "and",
-            conditions: [
-                [{field: "this"}, "in", JSON.stringify(values)],
-                rule
-            ]
-        }
-        this.#fieldTypeRules.set(FieldTypes.ENUM, _rule);
-        return this
-    }
-
-    nativeEnum<T extends {
-        [key: string | number]: string | number
-    }>(values: T, rule: Rule | RuleCondition | null = null): Append<T, T> {
-        return this.enum(Object.values(values), rule)
-    }
-
-    map(builder: (map: FieldMap) => FieldMap): Append<T, unknown> {
-        this.#fieldTypeRules.set(FieldTypes.MAP, builder(new FieldMap(this.name)));
         return this
     }
 
@@ -254,26 +152,3 @@ export class Field<T = never> implements BasicField<T> {
 }
 
 
-export class FieldMap<T = Record<string, never>> {
-    protected fields: BasicField[] = [];
-    readonly name: string
-
-    constructor(name: string) {
-        this.name = name
-    }
-
-    field<FIELD_TYPE, NAME extends string>(name: NAME, func: (field: Field) => BasicField<FIELD_TYPE>): FieldMap<T & Record<NAME, FIELD_TYPE>> {
-        this.fields.push(func(new Field(name)))
-        return this
-    }
-
-    _build(resourcePath: string) {
-        const _resourcePath = `${resourcePath}${this.name}`
-        let rules = this.fields.map(field => field._buildRules(_resourcePath))
-        return [
-            `${resourcePath}keys().hasAll([${this.fields.filter(i => !i.isOptional).map(f => `'${f.name}'`).join(", ")}])`,
-            `${resourcePath}keys().hasOnly([${this.fields.map(f => `'${f.name}'`).join(", ")}])`,
-            ...rules
-        ]
-    }
-}

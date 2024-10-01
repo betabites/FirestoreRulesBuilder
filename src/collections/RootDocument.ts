@@ -1,5 +1,5 @@
 import {BaseCollection} from "./BaseCollection.js";
-import {Collection} from "./Collection.js";
+import {Collection, ConvertedSchema, Schema} from "./Collection.js";
 import {BuildResult, CollectionObjectType} from "../types.js";
 
 export class RootDocument<COLLECTIONS extends Record<string, Collection<never, never>>> implements BaseCollection<Record<string, string>, COLLECTIONS> {
@@ -16,16 +16,18 @@ export class RootDocument<COLLECTIONS extends Record<string, Collection<never, n
 
     collection<
         NAME extends string,
-        SUBFIELDS extends {},
-        SUBCOLLECTIONS extends {},
-        RESULT extends Collection<SUBFIELDS, SUBCOLLECTIONS>
+        SCHEMA extends Schema,
+        RESULT extends ConvertedSchema<SCHEMA>
     >(
         name: NAME,
         documentIdVar: string | undefined,
-        builder: (collection: Collection<{}, {}>) => RESULT
+        schema: SCHEMA,
+        builder: (collection: ConvertedSchema<SCHEMA>) => RESULT
     ):
-        RootDocument<COLLECTIONS & Record<NAME, RESULT>> {
-        this.#collections.push(builder(new Collection(name, documentIdVar ?? "docId")))
+        RootDocument<COLLECTIONS & Record<NAME, RESULT>>
+    {
+        let collection = Collection.build(name, documentIdVar ?? "docId", schema)
+        this.#collections.push(builder(collection))
         return this
     }
 

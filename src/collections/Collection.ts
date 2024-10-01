@@ -1,7 +1,20 @@
-import {BasicField, Field, FieldMap} from "../fields/Field.js";
+import {BasicField, Field} from "../fields/Field.js";
 import {BaseCollection} from "./BaseCollection.js";
 import {rulesToString} from "../rulesToString.js";
-import {BuildResult, FieldRuleReference, Rule, RuleCondition, RuleStringConditions} from "../types.js";
+import {
+    BuildResult,
+    FieldRuleReference, OptionalValidationFunction,
+    Rule,
+    RuleCondition,
+    RuleStringConditions,
+    ValidationFunction
+} from "../types.js";
+import {FieldMap} from "../fields/FieldMap.js";
+
+export type Schema = {[key: string]: ValidationFunction<any>}
+export type ConvertedSchema<SCHEMA> = Collection<{
+    [K in keyof SCHEMA]: SCHEMA[K] extends ValidationFunction<infer VALUE> ? VALUE : never
+}, {}>
 
 export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS extends Record<string, Collection<never, never>>> implements BaseCollection<FIELDS, COLLECTIONS> {
     #collections: BaseCollection<never, never>[] = [];
@@ -11,18 +24,27 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
     #allowGetIf: Rule = {type: "and", conditions: ["false"]}
     #allowListIf: Rule = {type: "and", conditions: ["false"]}
     #preventAccessBlockingEdits = true;
+    validationRuleBuilders: {field: Field, func: ValidationFunction<any>}[] = []
     readonly documentIdVar: string
     readonly name: string
 
-    protected fields: BasicField[] = [];
+    static build<SCHEMA extends Schema>(name: string, documentIdVar: string, schema: SCHEMA): ConvertedSchema<SCHEMA>
+    {
+        let collection = new Collection(name, documentIdVar)
+        for (let key of Object.keys(schema)) {
+            collection._field(key, schema[key]);
+        }
+        return collection
+    }
 
     constructor(name: string, documentIdVar: string) {
         this.name = name
         this.documentIdVar = documentIdVar
     }
 
-    field<NAME extends string, VALUE>(name: NAME, func: (field: Field) => BasicField<VALUE>): Collection<FIELDS & Record<NAME, VALUE>, COLLECTIONS> {
-        this.fields.push(func(new Field(name)))
+    _field<NAME extends string, VALUE>(name: NAME, func: ValidationFunction<VALUE>): Collection<FIELDS & Record<NAME, VALUE>, COLLECTIONS> {
+        let field = new Field(name)
+        this.validationRuleBuilders.push({field, func})
         return this
     }
 
@@ -37,7 +59,7 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
         this.#preventAccessBlockingEdits = false
     }
 
-    allowFullAccessIf(rule: Rule): Omit<this, "allowFullAccessIf" | "allowCreateIf" | "allowUpdateIf" | "allowDeleteIf" | "allowListIf"> {
+    allowFullAccessIf(rule: Rule) {
         this.#allowCreateIf = rule;
         this.#allowUpdateIf = rule;
         this.#allowDeleteIf = rule;
@@ -46,39 +68,45 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
         return this
     }
 
-    allowGetIf(rule: Rule): Omit<this, "allowReadIf"> {
+    allowGetIf(rule: Rule) {
         this.#allowGetIf = rule;
         return this
     }
 
-    allowCreateIf(rule: Rule): Omit<this, "allowCreateIf"> {
+    allowCreateIf(rule: Rule) {
         this.#allowCreateIf = rule;
         return this
     }
 
-    allowUpdateIf(rule: Rule): Omit<this, "allowUpdateIf"> {
+    allowUpdateIf(rule: Rule) {
         this.#allowUpdateIf = rule;
         return this
     }
 
-    allowDeleteIf(rule: Rule): Omit<this, "allowDeleteIf"> {
+    allowDeleteIf(rule: Rule) {
         this.#allowDeleteIf = rule;
         return this
     }
 
-    allowListIf(rule: Rule): Omit<this, "allowListIf"> {
+    allowListIf(rule: Rule) {
         this.#allowListIf = rule;
         return this
     }
 
     collection<
         NAME extends string,
-        NFIELDS extends {},
-        NCOLLECTIONS extends {},
-        RESULT extends BaseCollection<NFIELDS, NCOLLECTIONS>
-    >(name: NAME, documentIdVar: string, builder: (collection: Collection<{}, {}>) => RESULT):
-        Collection<FIELDS, COLLECTIONS & Record<NAME, RESULT>> {
-        this.#collections.push(builder(new Collection(name, documentIdVar)))
+        SCHEMA extends Schema,
+        RESULT extends ConvertedSchema<SCHEMA>
+    >(
+        name: NAME,
+        documentIdVar: string,
+        schema: SCHEMA,
+        builder: (collection: ConvertedSchema<SCHEMA>) => RESULT
+    ):
+        Collection<FIELDS, COLLECTIONS & Record<NAME, RESULT>>
+    {
+        let collection = Collection.build(name, documentIdVar, schema)
+        this.#collections.push(builder(collection))
         return this
     }
 
@@ -111,15 +139,19 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
     }
 
     _buildSchemaWriteRules(resource: string): RuleStringConditions {
-        let rules = this.fields
-            .map(field => field._buildRules(resource))
+        let rules = this.validationRuleBuilders
+            .map(validation =>
+                isOptional(validation.func)
+                    ? validation.func.func(resource, validation.field)
+                    : validation.func(resource, validation.field)
+            )
             .filter(rule => rule.conditions.length !== 0)
             .flat(1)
         rules.unshift({
             type: "and",
             conditions: [
-                `${resource}keys().hasAll([${this.fields.filter(i => !i.isOptional).map(f => `'${f.name}'`).join(", ")}])`,
-                `${resource}keys().hasOnly([${this.fields.map(f => `'${f.name}'`).join(", ")}])`
+                `${resource}keys().hasAll([${this.validationRuleBuilders.filter(i => !isOptional(i.func)).map(f => `'${f.field.name}'`).join(", ")}])`,
+                `${resource}keys().hasOnly([${this.validationRuleBuilders.map(f => `'${f.field.name}'`).join(", ")}])`
             ]
         })
         return {type: "and", conditions: rules}
@@ -157,4 +189,9 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
             "}"
         ]
     }
+}
+
+function isOptional<DATA>(validation: ValidationFunction<DATA>): validation is OptionalValidationFunction<DATA> {
+    // @ts-expect-error
+    return validation.func.isOptional
 }

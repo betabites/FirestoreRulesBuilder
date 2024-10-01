@@ -1,4 +1,5 @@
 import {Collection} from "./collections/Collection.js";
+import {Field} from "./fields/Field.js";
 
 export type FieldRuleReference = {
     field: "this" | string
@@ -15,6 +16,7 @@ export type Operators = "<"
 | "array-contains-any"
 | "in"
 | "not-in"
+| "is"
 
 export type RuleCondition = [FieldRuleReference | string, Operators, FieldRuleReference | string]
 
@@ -40,3 +42,10 @@ export type CollectionType<FIELDS extends {}, COLLECTIONS extends Record<string,
 export type CollectionObjectType<T extends Record<string, Collection<{}, {}>>> = {
     [K in keyof T]: T[K] extends Collection<infer FIELDS, infer COLLECTIONS> ? CollectionType<FIELDS, COLLECTIONS> : never;
 };
+
+export type RequiredValidationFunction<DATA_TYPE> = (resourcePath: string, field: Field) => RuleStringConditions;
+export type OptionalValidationFunction<DATA_TYPE> = {
+    isOptional: true,
+    func: RequiredValidationFunction<DATA_TYPE | undefined>
+}
+export type ValidationFunction<DATA_TYPE> = RequiredValidationFunction<DATA_TYPE> | OptionalValidationFunction<DATA_TYPE>;
