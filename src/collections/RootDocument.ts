@@ -1,34 +1,18 @@
 import {BaseCollection} from "./BaseCollection.js";
-import {Collection, ConvertedSchema, Schema} from "./Collection.js";
+import {Collection} from "./Collection.js";
 import {BuildResult, CollectionObjectType} from "../types.js";
 
-export class RootDocument<COLLECTIONS extends Record<string, Collection<never, never>>> implements BaseCollection<Record<string, string>, COLLECTIONS> {
-    #collections: Collection<never, never>[] = []
+export class RootDocument<COLLECTIONS extends Collection<"database", {}, []>[]> {
+    #collections: COLLECTIONS
     #database = "{database}"
 
-    constructor(database?: string) {
+    constructor(database: string | undefined, collections: COLLECTIONS) {
         if (database) this.#database = database
+        this.#collections = collections
     }
 
     get path() {
         return `/databases/${this.#database}/documents`
-    }
-
-    collection<
-        NAME extends string,
-        SCHEMA extends Schema,
-        RESULT extends ConvertedSchema<SCHEMA>
-    >(
-        name: NAME,
-        documentIdVar: string | undefined,
-        schema: SCHEMA,
-        builder: (collection: ConvertedSchema<SCHEMA>) => RESULT
-    ):
-        RootDocument<COLLECTIONS & Record<NAME, RESULT>>
-    {
-        let collection = Collection.build(name, documentIdVar ?? "docId", schema)
-        this.#collections.push(builder(collection))
-        return this
     }
 
     _build(): BuildResult {
@@ -49,6 +33,10 @@ export class RootDocument<COLLECTIONS extends Record<string, Collection<never, n
     toString() {
         return renderRules(this._build()).join("\n")
     }
+}
+
+export function rootDocument(database: string | undefined, collections: Collection<string, {}, []>[]) {
+    return new RootDocument(database, collections);
 }
 
 function renderRules(data: BuildResult, depth = 0) {

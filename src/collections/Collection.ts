@@ -11,12 +11,7 @@ import {
 } from "../types.js";
 import {FieldMap} from "../fields/FieldMap.js";
 
-export type Schema = {[key: string]: ValidationFunction<any>}
-export type ConvertedSchema<SCHEMA> = Collection<{
-    [K in keyof SCHEMA]: SCHEMA[K] extends ValidationFunction<infer VALUE> ? VALUE : never
-}, {}>
-
-export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS extends Record<string, Collection<never, never>>> implements BaseCollection<FIELDS, COLLECTIONS> {
+export class Collection<NAME extends string, FIELDS extends Record<string, ValidationFunction<any>>, COLLECTIONS extends Collection<string, {}, []>[]> implements BaseCollection<FIELDS, COLLECTIONS> {
     #collections: BaseCollection<never, never>[] = [];
     #allowCreateIf: Rule = {type: "and", conditions: ["false"]}
     #allowUpdateIf: Rule = {type: "and", conditions: ["false"]}
@@ -24,28 +19,16 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
     #allowGetIf: Rule = {type: "and", conditions: ["false"]}
     #allowListIf: Rule = {type: "and", conditions: ["false"]}
     #preventAccessBlockingEdits = true;
-    validationRuleBuilders: {field: Field, func: ValidationFunction<any>}[] = []
+    readonly fields: FIELDS
+    readonly collections: COLLECTIONS
     readonly documentIdVar: string
     readonly name: string
 
-    static build<SCHEMA extends Schema>(name: string, documentIdVar: string, schema: SCHEMA): ConvertedSchema<SCHEMA>
-    {
-        let collection = new Collection(name, documentIdVar)
-        for (let key of Object.keys(schema)) {
-            collection._field(key, schema[key]);
-        }
-        return collection
-    }
-
-    constructor(name: string, documentIdVar: string) {
+    constructor(name: NAME, documentIdVar: string, fields: FIELDS, collections: COLLECTIONS) {
         this.name = name
         this.documentIdVar = documentIdVar
-    }
-
-    _field<NAME extends string, VALUE>(name: NAME, func: ValidationFunction<VALUE>): Collection<FIELDS & Record<NAME, VALUE>, COLLECTIONS> {
-        let field = new Field(name)
-        this.validationRuleBuilders.push({field, func})
-        return this
+        this.fields = fields
+        this.collections = collections
     }
 
     get relativePath() {
@@ -93,23 +76,6 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
         return this
     }
 
-    collection<
-        NAME extends string,
-        SCHEMA extends Schema,
-        RESULT extends ConvertedSchema<SCHEMA>
-    >(
-        name: NAME,
-        documentIdVar: string,
-        schema: SCHEMA,
-        builder: (collection: ConvertedSchema<SCHEMA>) => RESULT
-    ):
-        Collection<FIELDS, COLLECTIONS & Record<NAME, RESULT>>
-    {
-        let collection = Collection.build(name, documentIdVar, schema)
-        this.#collections.push(builder(collection))
-        return this
-    }
-
     _transposeRuleField(resourcePath: string, fieldRuleResource: FieldRuleReference | string) {
         if (typeof fieldRuleResource === "string") return fieldRuleResource
         else if (fieldRuleResource.collectionRef) return `get(${fieldRuleResource}).data.${this.name}`
@@ -139,19 +105,21 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
     }
 
     _buildSchemaWriteRules(resource: string): RuleStringConditions {
-        let rules = this.validationRuleBuilders
-            .map(validation =>
-                isOptional(validation.func)
-                    ? validation.func.func(resource, validation.field)
-                    : validation.func(resource, validation.field)
-            )
+        let rules = Object.keys(this.fields)
+            .map(fieldName => {
+                let field = new Field(fieldName)
+                let func = this.fields[fieldName];
+                return isOptional(func)
+                    ? func.func(resource, field)
+                    : func(resource, field)
+            })
             .filter(rule => rule.conditions.length !== 0)
             .flat(1)
         rules.unshift({
             type: "and",
             conditions: [
-                `${resource}keys().hasAll([${this.validationRuleBuilders.filter(i => !isOptional(i.func)).map(f => `'${f.field.name}'`).join(", ")}])`,
-                `${resource}keys().hasOnly([${this.validationRuleBuilders.map(f => `'${f.field.name}'`).join(", ")}])`
+                `${resource}keys().hasAll([${Object.keys(this.fields).filter(fieldName => !isOptional(this.fields[fieldName])).map(f => `'${f}'`).join(", ")}])`,
+                `${resource}keys().hasOnly([${Object.keys(this.fields).map(f => `'${f}'`).join(", ")}])`
             ]
         })
         return {type: "and", conditions: rules}
@@ -189,6 +157,15 @@ export class Collection<FIELDS extends Record<string, unknown>, COLLECTIONS exte
             "}"
         ]
     }
+}
+
+export function collection<
+    NAME extends string,
+    FIELDS extends Record<string, ValidationFunction<unknown>>,
+    COLLECTIONS extends Collection<string, {}, []>[]
+> (name: NAME, documentIdVar: string | undefined, fields: FIELDS, collections: COLLECTIONS) {
+    return new Collection(name, documentIdVar ?? "docId", fields, collections)
+
 }
 
 function isOptional<DATA>(validation: ValidationFunction<DATA>): validation is OptionalValidationFunction<DATA> {

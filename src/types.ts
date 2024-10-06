@@ -32,15 +32,22 @@ export type RuleStringConditions = {
 
 export type BuildResult = (string | BuildResult)[]
 
-export type CollectionType<FIELDS extends {}, COLLECTIONS extends Record<string, Collection<any, any>>, T = Collection<FIELDS, COLLECTIONS>> = {
-    fields: FIELDS,
-    f: FIELDS,
-    collections: CollectionObjectType<COLLECTIONS>
-    c: CollectionObjectType<COLLECTIONS>
+export type CollectionType<
+    NAME extends string,
+    FIELDS extends {},
+    COLLECTIONS extends Collection<string, any, any>[],
+    T = Collection<NAME, FIELDS, COLLECTIONS>> = {
+    [key in NAME]: {
+        fields: FIELDS,
+        f: FIELDS,
+        collections: CollectionObjectType<COLLECTIONS>
+        c: CollectionObjectType<COLLECTIONS>
+    }
 }
 
-export type CollectionObjectType<T extends Record<string, Collection<{}, {}>>> = {
-    [K in keyof T]: T[K] extends Collection<infer FIELDS, infer COLLECTIONS> ? CollectionType<FIELDS, COLLECTIONS> : never;
+export type CollectionObjectType<T extends Collection<string, {}, []>[]> = {
+    [K in keyof T]: T[K] extends Collection<infer NAME, infer FIELDS, infer COLLECTIONS> ?
+        CollectionType<NAME, FIELDS, COLLECTIONS> : never;
 };
 
 export type RequiredValidationFunction<DATA_TYPE> = (resourcePath: string, field: Field) => RuleStringConditions;
