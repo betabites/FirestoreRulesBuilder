@@ -1,4 +1,4 @@
-import {RootDocument, Rule, Infer} from "../dist/index.js";
+import {Rule, Infer} from "../dist/index.js";
 import {writeFileSync} from "fs"
 import {or} from "../dist/validation/or.js";
 import {nullable} from "../dist/validation/nullable.js";
@@ -12,8 +12,8 @@ import {boolean} from "../dist/validation/boolean.js";
 import {nativeEnum} from "../dist/validation/nativeEnum.js";
 import {timestamp} from "../dist/validation/timestamp.js";
 import {optional} from "../dist/validation/optional.js";
-import {rootDocument} from "../src/collections/RootDocument.js";
-import {collection} from "../src/collections/Collection.js";
+import {rootDocument} from "../dist/collections/RootDocument.js";
+import {collection} from "../dist/collections/Collection.js";
 
 const allowOwnerRule: Rule = {
     type: "and",
@@ -25,85 +25,6 @@ enum StoreTypes {
     BASIC_PHYSICAL
 }
 
-// let root = new RootDocument()
-//     .collection("users", "userId",
-//         {
-//             _id: string(),
-//             colourTheme: number(),
-//             printCalibrationHeight: number(),
-//             printCalibrationWidth: number(),
-//             storage: map(null, {
-//                 available: number(),
-//                 used: number()
-//             })
-//         },
-//         (c) => c
-//             .allowFullAccessIf(allowOwnerRule)
-//             .collection("artworks", "artworkId", {
-//                     name: string(),
-//                     gpsCoordinates: or(
-//                         nullable(),
-//                         map(null, {latitude: number(), longitude: number()})
-//                     )
-//                 }, (c) => c
-//                     .allowFullAccessIf(allowOwnerRule)
-//                     .collection(
-//                         "images", "imageId",
-//                         {
-//                             childImages: unsafeList(),
-//                             height: number(),
-//                             tags: unsafeList(),
-//                             width: number()
-//                         },
-//                         (c) => c
-//                             .collection("products", "productId", {
-//                                     name: string(),
-//                                     type: enumValidation(null, ["basic, group"]),
-//                                     printCount: optional(number()),
-//                                     productTemplate: optional(path()),
-//                                     artworkImage: optional(path()),
-//                                     childProducts: unsafeList(),
-//                                     userId: string([{field: "this"}, "==", "request.auth.uid"])
-//                                 }, (c) => c
-//                                     .allowFullAccessIf(allowOwnerRule)
-//                             )
-//                     )
-//                     .collection("productTemplates", "productTemplateId", (c) => c
-//                         .allowFullAccessIf(allowOwnerRule)
-//                         .field("cropConstraintEnabled", boolean())
-//                         .field("cropConstraintX", number())
-//                         .field("cropConstraintY", number())
-//                         .field("fitToPage", boolean())
-//                         .field("includeArtworkImage", boolean())
-//                         .field("includeSignature", boolean())
-//                         .field("marginBottom", number())
-//                         .field("marginLeft", number())
-//                         .field("marginRight", number())
-//                         .field("marginTop", number())
-//                         .field("marginsEnabled", boolean())
-//                         .field("name", string())
-//                         .field("productMedium", string())
-//                     )
-//                     .collection("stores", "storeId", (c) => c
-//                         .allowFullAccessIf(allowOwnerRule)
-//                         .field("name", string())
-//                         .field("type", nativeEnum(null, StoreTypes))
-//                         .collection("stockLevels", "stockLevelId", c => c
-//                             .allowFullAccessIf(allowOwnerRule)
-//                             .field("inventory", number())
-//                             .field("product", path())
-//                             .field("stockLevelAdjustAdd", number())
-//                             .field("stockLevelAdjustSell", number())
-//                             .field("userId", string([{field: "this"}, "==", "request.auth.uid"]))
-//                             .collection("history", "historyId", (c) => c
-//                                 .field("timestamp", timestamp())
-//                                 .field("stockLevelChange", number())
-//                                 .field("stockAfterChange", number())
-//                             )
-//                         )
-//                     )
-//             );
-
 let root = rootDocument(undefined, [
     collection("users", "userId", {
         _id: string(),
@@ -114,10 +35,82 @@ let root = rootDocument(undefined, [
             available: number(),
             used: number()
         })
-    }, [])
-] as const)
+    }, [
+        collection("artworks", "artworkId", {
+            name: string(),
+            gpsCoordinates: or(
+                nullable(),
+                map(null, {
+                    latitude: number(),
+                    longitude: number()
+                })
+            )
+        }, [
+            collection("images", "imageId", {
+                relativeURI: string(),
+                childImages: unsafeList(),
+                height: number(),
+                tags: unsafeList(),
+                width: number(),
+                userId: string([{field: "this"}, "==", "request.auth.id"])
+            }, [])
+            .allowFullAccessIf(allowOwnerRule),
+            collection("products", "productId", {
+                name: string(),
+                type: enumValidation(null, ["basic", "group"]),
+                printCount: optional(number()),
+                productTemplate: optional(path()),
+                artworkImage: optional(path()),
+                childProducts: unsafeList(),
+                userId: string([{field: "this"}, "==", "request.auth.uid"])
+            }, [])
+            .allowFullAccessIf(allowOwnerRule)
+        ])
+        .allowFullAccessIf(allowOwnerRule),
+        collection("productTemplates", "productTemplateId", {
+            cropConstraintEnabled: boolean(),
+            cropConstraintX: number(),
+            cropConstraintY: number(),
+            fitToPage: boolean(),
+            includeArtworkImage: boolean(),
+            includesSignature: boolean(),
+            marginBottom: number(),
+            marginLeft: number(),
+            marginTop: number(),
+            marginRight: number(),
+            marginsEnabled: boolean(),
+            name: string(),
+            productionMedium: string()
+        }, [])
+        .allowFullAccessIf(allowOwnerRule),
+
+        collection("stores", "storeId", {
+            name: string(),
+            type: nativeEnum(null, StoreTypes)
+        }, [
+            collection("stockLevels", "stockLevelId", {
+                stockLevel: number(),
+                inventory: number(),
+                product: path(),
+                stockLevelAdjustAdd: number(),
+                stockLevelAdjustSell: number(),
+                userId: string([{field: "this"}, "==", "request.auth.uid"])
+            }, [
+                collection("history", "historyId", {
+                    timestamp: timestamp(),
+                    stockLevelChange: number(),
+                    stockAfterChange: number()
+                }, [])
+                .allowFullAccessIf(allowOwnerRule)
+            ])
+            .allowFullAccessIf(allowOwnerRule)
+        ])
+        .allowFullAccessIf(allowOwnerRule)
+    ])
+    .allowFullAccessIf(allowOwnerRule)
+])
 
 writeFileSync("./firestore.rules", root.toString())
 export type Root = Infer<typeof root>
 let rootData: Root;
-rootData.
+// rootData.c.users.c.stores.c.stockLevels.c.history.f.stockAfterChange

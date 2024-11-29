@@ -1,8 +1,8 @@
 import {BaseCollection} from "./BaseCollection.js";
 import {Collection} from "./Collection.js";
-import {BuildResult, CollectionObjectType} from "../types.js";
+import {BuildResult, CollectionArray, CollectionObjectType} from "../types.js";
 
-export class RootDocument<COLLECTIONS extends Collection<"database", {}, []>[]> {
+export class RootDocument<COLLECTIONS extends CollectionArray> {
     #collections: COLLECTIONS
     #database = "{database}"
 
@@ -35,7 +35,7 @@ export class RootDocument<COLLECTIONS extends Collection<"database", {}, []>[]> 
     }
 }
 
-export function rootDocument(database: string | undefined, collections: Collection<string, {}, []>[]) {
+export function rootDocument<COLLECTIONS extends CollectionArray>(database: string | undefined, collections: COLLECTIONS) {
     return new RootDocument(database, collections);
 }
 

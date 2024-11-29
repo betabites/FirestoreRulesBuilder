@@ -34,21 +34,32 @@ export type BuildResult = (string | BuildResult)[]
 
 export type CollectionType<
     NAME extends string,
-    FIELDS extends {},
+    FIELDS extends Record<string, ValidationFunction<any>>,
     COLLECTIONS extends Collection<string, any, any>[],
     T = Collection<NAME, FIELDS, COLLECTIONS>> = {
-    [key in NAME]: {
-        fields: FIELDS,
-        f: FIELDS,
-        collections: CollectionObjectType<COLLECTIONS>
-        c: CollectionObjectType<COLLECTIONS>
-    }
+    fields: InferFields<FIELDS>,
+    f: InferFields<FIELDS>,
+    collections: CollectionObjectType<COLLECTIONS>
+    c: CollectionObjectType<COLLECTIONS>
 }
 
-export type CollectionObjectType<T extends Collection<string, {}, []>[]> = {
-    [K in keyof T]: T[K] extends Collection<infer NAME, infer FIELDS, infer COLLECTIONS> ?
-        CollectionType<NAME, FIELDS, COLLECTIONS> : never;
-};
+export type InferFields<FIELDS extends Record<string, ValidationFunction<any>>> = {
+    [K in keyof FIELDS]: FIELDS[K] extends ValidationFunction<infer DATA>
+        ? (DATA extends Record<string, ValidationFunction<any>> ? InferFields<DATA> : DATA)
+        : never
+}
+
+export type CollectionArray = Collection<string, {}, CollectionArray>[]
+
+// export type CollectionObjectType<T extends CollectionArray> = {
+//     [K in keyof T]: T[K] extends Collection<infer NAME, infer FIELDS, infer COLLECTIONS> ?
+//         CollectionType<NAME, FIELDS, COLLECTIONS> : never;
+// }[number];
+
+export type CollectionObjectType<T extends CollectionArray> = {
+    [K in T[number] as K["name"]]: CollectionType<K["name"], K["fields"], K["collections"]>
+}
+
 
 export type RequiredValidationFunction<DATA_TYPE> = (resourcePath: string, field: Field) => RuleStringConditions;
 export type OptionalValidationFunction<DATA_TYPE> = {

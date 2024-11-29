@@ -2,7 +2,7 @@ import {BasicField, Field} from "../fields/Field.js";
 import {BaseCollection} from "./BaseCollection.js";
 import {rulesToString} from "../rulesToString.js";
 import {
-    BuildResult,
+    BuildResult, CollectionArray,
     FieldRuleReference, OptionalValidationFunction,
     Rule,
     RuleCondition,
@@ -11,20 +11,26 @@ import {
 } from "../types.js";
 import {FieldMap} from "../fields/FieldMap.js";
 
-export class Collection<NAME extends string, FIELDS extends Record<string, ValidationFunction<any>>, COLLECTIONS extends Collection<string, {}, []>[]> implements BaseCollection<FIELDS, COLLECTIONS> {
-    #collections: BaseCollection<never, never>[] = [];
+
+export class Collection<
+    NAME extends string,
+    FIELDS extends Record<string, ValidationFunction<any>>,
+    COLLECTIONS extends CollectionArray> implements BaseCollection<FIELDS, COLLECTIONS>
+{
     #allowCreateIf: Rule = {type: "and", conditions: ["false"]}
     #allowUpdateIf: Rule = {type: "and", conditions: ["false"]}
     #allowDeleteIf: Rule = {type: "and", conditions: ["false"]}
     #allowGetIf: Rule = {type: "and", conditions: ["false"]}
     #allowListIf: Rule = {type: "and", conditions: ["false"]}
     #preventAccessBlockingEdits = true;
-    readonly fields: FIELDS
-    readonly collections: COLLECTIONS
     readonly documentIdVar: string
-    readonly name: string
 
-    constructor(name: NAME, documentIdVar: string, fields: FIELDS, collections: COLLECTIONS) {
+    constructor(
+        readonly name: NAME,
+        documentIdVar: string,
+        readonly fields: FIELDS,
+        readonly collections: COLLECTIONS
+    ) {
         this.name = name
         this.documentIdVar = documentIdVar
         this.fields = fields
@@ -78,7 +84,7 @@ export class Collection<NAME extends string, FIELDS extends Record<string, Valid
 
     _transposeRuleField(resourcePath: string, fieldRuleResource: FieldRuleReference | string) {
         if (typeof fieldRuleResource === "string") return fieldRuleResource
-        else if (fieldRuleResource.collectionRef) return `get(${fieldRuleResource}).data.${this.name}`
+        else if (fieldRuleResource.collectionRef) return `get(${fieldRuleResource.collectionRef}).data.${fieldRuleResource.field}`
         return `${resourcePath}${fieldRuleResource.field}`
     }
 
@@ -132,27 +138,38 @@ export class Collection<NAME extends string, FIELDS extends Record<string, Valid
             `match ${this.relativePath} {`,
             [
                 "function isValidSchema(data) {",
-                ["return " + rulesToString(this._buildSchemaWriteRules("data.")) + ";"],
+                [
+                    "return (",
+                    rulesToString(this._buildSchemaWriteRules("data.")),
+                    ");"],
                 "}",
                 `allow get: if ${rulesToString(this._transposeRule("resource.data.", this.#allowGetIf))};`,
-                `allow create: if ${rulesToString({
-                    type: "and",
-                    conditions: [
-                        rulesToString(this._transposeRule("request.resource.data.", this.#allowCreateIf)),
-                        "isValidSchema(request.resource.data)"
-                    ]
-                })};`,
-                `allow update: if ${rulesToString({
-                    type: "and",
-                    conditions: [
-                        "isValidSchema(request.resource.data)",
-                        this._transposeRule("resource.data", this.#allowUpdateIf),
-                        this.#preventAccessBlockingEdits ? this._transposeRule("request.resource.data.", this.#allowUpdateIf) : undefined
-                    ]
-                })};`,
-                `allow list: if ${rulesToString(this._transposeRule("request.resource.data.", this.#allowListIf))};`,
-                `allow delete: if ${rulesToString(this._transposeRule("request.resource.data.", this.#allowDeleteIf))};`,
-                ...this.#collections.map(c => c._build()).flat(1)
+                `allow create: if (`,
+                    rulesToString({
+                        type: "and",
+                        conditions: [
+                            this._transposeRule("request.resource.data.", this.#allowCreateIf),
+                            "isValidSchema(request.resource.data)"
+                        ]
+                    }),
+                ");",
+                `allow update: if (`,
+                    rulesToString({
+                        type: "and",
+                        conditions: [
+                            "isValidSchema(request.resource.data)",
+                            this._transposeRule("resource.data", this.#allowUpdateIf),
+                            this.#preventAccessBlockingEdits ? this._transposeRule("request.resource.data.", this.#allowUpdateIf) : undefined
+                        ]
+                    }),
+                ");",
+                `allow list: if (`,
+                    rulesToString(this._transposeRule("request.resource.data.", this.#allowListIf)),
+                ");",
+                `allow delete: if (`,
+                    rulesToString(this._transposeRule("request.resource.data.", this.#allowDeleteIf)),
+                ");",
+                ...this.collections.map(c => c._build()).flat(1)
             ],
             "}"
         ]
@@ -162,7 +179,7 @@ export class Collection<NAME extends string, FIELDS extends Record<string, Valid
 export function collection<
     NAME extends string,
     FIELDS extends Record<string, ValidationFunction<unknown>>,
-    COLLECTIONS extends Collection<string, {}, []>[]
+    COLLECTIONS extends CollectionArray
 > (name: NAME, documentIdVar: string | undefined, fields: FIELDS, collections: COLLECTIONS) {
     return new Collection(name, documentIdVar ?? "docId", fields, collections)
 
@@ -170,5 +187,5 @@ export function collection<
 
 function isOptional<DATA>(validation: ValidationFunction<DATA>): validation is OptionalValidationFunction<DATA> {
     // @ts-expect-error
-    return validation.func.isOptional
+    return validation.isOptional
 }

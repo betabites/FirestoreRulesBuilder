@@ -1,8 +1,8 @@
 import {Rule, RuleCondition, RequiredValidationFunction} from "../types.js";
 import {Field} from "../fields/Field.js";
 
-export function boolean(rule: Rule | RuleCondition | null = null): RequiredValidationFunction<boolean> {
-    const condition: RuleCondition = [{field: "this"}, "is", "bool"]
+export function exact<T extends string | number>(value: T, rule: Rule | RuleCondition | null = null): RequiredValidationFunction<T> {
+    const condition: RuleCondition = [{field: "this"}, "==", JSON.stringify(value)]
     return (resourcePath, field) => {
         return field._transposeRule(resourcePath, {
             type: "and",
@@ -10,3 +10,4 @@ export function boolean(rule: Rule | RuleCondition | null = null): RequiredValid
         })
     }
 }
+
