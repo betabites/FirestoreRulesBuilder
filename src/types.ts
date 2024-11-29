@@ -42,12 +42,29 @@ export type CollectionType<
     collections: CollectionObjectType<COLLECTIONS>
     c: CollectionObjectType<COLLECTIONS>
 }
+/**
+ * Expands a given type by resolving its structure one level deep.
+ *
+ * TypeScript often leaves generics unevaluated in error messages, making it
+ * difficult to see the full structure of a type. Wrapping a type with `Expand`
+ * forces TypeScript to compute and display the expanded shape of the type,
+ * improving readability in error messages and tooltips.
+ *
+ * @template T - The type to expand.
+ * @returns A new type where all properties of `T` are resolved to their original values.
+ *
+ * @example
+ * type OriginalType = { ABC: string; DEF: number; };
+ * type ExpandedType = Expand<OriginalType>;
+ * // ExpandedType will resolve to: { ABC: string; DEF: number; }
+ */
+type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
 
-export type InferFields<FIELDS extends Record<string, ValidationFunction<any>>> = {
+export type InferFields<FIELDS extends Record<string, ValidationFunction<any>>> = Expand<{
     [K in keyof FIELDS]: FIELDS[K] extends ValidationFunction<infer DATA>
         ? (DATA extends Record<string, ValidationFunction<any>> ? InferFields<DATA> : DATA)
         : never
-}
+}>
 
 export type CollectionArray = Collection<string, {}, CollectionArray>[]
 
