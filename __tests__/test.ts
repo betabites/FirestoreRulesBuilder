@@ -1,7 +1,6 @@
 import {Rule, Infer} from "../dist/index.js";
 import {writeFileSync} from "fs"
 import {or} from "../dist/validation/or.js";
-import {and} from "../dist/validation/and.js";
 import {nullable} from "../dist/validation/nullable.js";
 import {map} from "../dist/validation/map.js";
 import {number} from "../dist/validation/number.js";
@@ -19,6 +18,11 @@ import {collection} from "../dist/collections/Collection.js";
 const allowOwnerRule: Rule = {
     type: "and",
     conditions: [["userId", "==", "request.auth.uid"]]
+}
+
+const allowOwnerRuleCollectionGroups: Rule = {
+    type: "and",
+    conditions: [[{field: "userId"}, "==", "request.auth.uid"]]
 }
 
 /**
@@ -62,7 +66,7 @@ let root = rootDocument(undefined, [
                     longitude: number()
                 })
             ),
-            trash: and(trash, map({abc: 123}))
+            trash: trash
         }, [
             collection("images", "imageId", {
                 relativeURI: string(),
@@ -70,9 +74,11 @@ let root = rootDocument(undefined, [
                 height: number(),
                 tags: unsafeList(),
                 width: number(),
+                userId: string([{field: "this"}, "==", "request.auth.uid"]),
                 trash
             }, [])
-                .allowFullAccessIf(allowOwnerRule)
+                .allowFullAccessIf(allowOwnerRuleCollectionGroups)
+                .collectionGroup()
             ,
             collection("products", "productId", {
                 name: string(),
@@ -83,7 +89,7 @@ let root = rootDocument(undefined, [
                 childProducts: unsafeList(),
                 userId: string([{field: "this"}, "==", "request.auth.uid"])
             }, [])
-                .allowFullAccessIf(allowOwnerRule)
+                .allowFullAccessIf(allowOwnerRuleCollectionGroups)
         ])
             .allowFullAccessIf(allowOwnerRule),
         collection("productTemplates", "productTemplateId", {
@@ -131,7 +137,7 @@ let root = rootDocument(undefined, [
                 }, [])
                     .allowFullAccessIf(allowOwnerRule)
             ])
-                .allowFullAccessIf(allowOwnerRule)
+                .allowFullAccessIf(allowOwnerRuleCollectionGroups)
         ])
             .allowFullAccessIf(allowOwnerRule)
     ])

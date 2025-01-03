@@ -24,6 +24,10 @@ export class RootDocument<COLLECTIONS extends CollectionArray> {
             [
                 `match /databases/${this.#database}/documents {`,
                 ...this.#collections.map(c => c._build()),
+                ...this.#collections
+                    .map(c => c._getCollectionGroups())
+                    .flat(1)
+                    .map(c => c._buildCollectionGroup()),
                 "}"
             ],
             "}"
