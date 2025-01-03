@@ -14,3 +14,4 @@ export {timestamp} from "./validation/timestamp.js"
 export {unsafeList} from "./validation/unsafeList.js"
 export {exact} from "./validation/exact.js"
 export * from "./types.js"
+export const ALLOW_ALL = {type: "and", conditions: ["true"]};
