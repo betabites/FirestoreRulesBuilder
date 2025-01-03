@@ -21,13 +21,13 @@ export type Operators = "<"
 export type RuleCondition = [FieldRuleReference | string, Operators, FieldRuleReference | string]
 
 export type Rule = {
-    type: "and" | "or",
-    conditions: (Rule | RuleCondition | string | undefined | null)[]
+    type: "and" | "or" | "not",
+    conditions: (Rule | RuleCondition | string | undefined | null)[],
 }
 
 export type RuleStringConditions = {
-    type: "and" | "or",
-    conditions: (RuleStringConditions | string | undefined | null)[]
+    type: "and" | "or" | "not",
+    conditions: (RuleStringConditions | string | undefined | null)[],
 }
 
 export type BuildResult = (string | BuildResult)[]
@@ -58,13 +58,21 @@ export type CollectionType<
  * type ExpandedType = Expand<OriginalType>;
  * // ExpandedType will resolve to: { ABC: string; DEF: number; }
  */
-type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
+type Expand<T> = T extends infer O ? {[K in keyof O]: O[K]} : never;
 
 export type InferFields<FIELDS extends Record<string, ValidationFunction<any>>> = Expand<{
     [K in keyof FIELDS]: FIELDS[K] extends ValidationFunction<infer DATA>
         ? (DATA extends Record<string, ValidationFunction<any>> ? InferFields<DATA> : DATA)
         : never
 }>
+
+    // {[K in keyof T]-?: undefined extends T[K] ? never : T[K]}
+    // & Partial<T>
+
+export type ConvertToOptional<FIELDS extends Record<string, any>> = {
+    [K in keyof FIELDS]-?: undefined extends FIELDS[K]
+        ? FIELDS[K] : FIELDS[K]
+}
 
 export type CollectionArray = Collection<string, {}, CollectionArray>[]
 
@@ -78,7 +86,7 @@ export type CollectionObjectType<T extends CollectionArray> = {
 }
 
 
-export type RequiredValidationFunction<DATA_TYPE> = (resourcePath: string, field: Field) => RuleStringConditions;
+export type RequiredValidationFunction<DATA_TYPE> = (resourcePath: string, field: Field, currentFieldName?: string) => RuleStringConditions;
 export type OptionalValidationFunction<DATA_TYPE> = {
     isOptional: true,
     func: RequiredValidationFunction<DATA_TYPE | undefined>

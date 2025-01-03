@@ -10,12 +10,15 @@ import {
     ValidationFunction
 } from "../types.js";
 import {FieldMap} from "../fields/FieldMap.js";
+import {RecordHolder} from "./RecordHolder.js";
 
 
 export class Collection<
     NAME extends string,
     FIELDS extends Record<string, ValidationFunction<any>>,
-    COLLECTIONS extends CollectionArray> implements BaseCollection<FIELDS, COLLECTIONS>
+    COLLECTIONS extends CollectionArray>
+    extends RecordHolder
+    implements BaseCollection<FIELDS, COLLECTIONS>
 {
     #allowCreateIf: Rule = {type: "and", conditions: ["false"]}
     #allowUpdateIf: Rule = {type: "and", conditions: ["false"]}
@@ -31,9 +34,9 @@ export class Collection<
         readonly fields: FIELDS,
         readonly collections: COLLECTIONS
     ) {
+        super(fields)
         this.name = name
         this.documentIdVar = documentIdVar
-        this.fields = fields
         this.collections = collections
     }
 
@@ -110,26 +113,6 @@ export class Collection<
 
     }
 
-    _buildSchemaWriteRules(resource: string): RuleStringConditions {
-        let rules = Object.keys(this.fields)
-            .map(fieldName => {
-                let field = new Field(fieldName)
-                let func = this.fields[fieldName];
-                return isOptional(func)
-                    ? func.func(resource, field)
-                    : func(resource, field)
-            })
-            .filter(rule => rule.conditions.length !== 0)
-            .flat(1)
-        rules.unshift({
-            type: "and",
-            conditions: [
-                `${resource}keys().hasAll([${Object.keys(this.fields).filter(fieldName => !isOptional(this.fields[fieldName])).map(f => `'${f}'`).join(", ")}])`,
-                `${resource}keys().hasOnly([${Object.keys(this.fields).map(f => `'${f}'`).join(", ")}])`
-            ]
-        })
-        return {type: "and", conditions: rules}
-    }
 
     _build(): BuildResult {
 
@@ -183,9 +166,4 @@ export function collection<
 > (name: NAME, documentIdVar: string | undefined, fields: FIELDS, collections: COLLECTIONS) {
     return new Collection(name, documentIdVar ?? "docId", fields, collections)
 
-}
-
-function isOptional<DATA>(validation: ValidationFunction<DATA>): validation is OptionalValidationFunction<DATA> {
-    // @ts-expect-error
-    return validation.isOptional
 }

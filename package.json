@@ -1,6 +1,6 @@
 {
   "name": "firestore-rules-builder",
-  "version": "0.1.5-alpha",
+  "version": "0.1.7-alpha",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

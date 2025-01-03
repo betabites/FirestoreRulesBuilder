@@ -1,6 +1,7 @@
 import {Rule, Infer} from "../dist/index.js";
 import {writeFileSync} from "fs"
 import {or} from "../dist/validation/or.js";
+import {and} from "../dist/validation/and.js";
 import {nullable} from "../dist/validation/nullable.js";
 import {map} from "../dist/validation/map.js";
 import {number} from "../dist/validation/number.js";
@@ -20,9 +21,25 @@ const allowOwnerRule: Rule = {
     conditions: [["userId", "==", "request.auth.uid"]]
 }
 
+/**
+ * A re-usable property constructor for database items that could be marked as 'trash'.
+ * Items with a date in this property are considered 'trash' and will be permanently deleted when this date is reached.
+ *
+ *
+ */
+const trash = optional(or(
+    nullable(),
+    timestamp()
+))
+
 enum StoreTypes {
     BASIC_ONLINE,
     BASIC_PHYSICAL
+}
+
+export enum ProductTemplateTypes {
+    FIXED,
+    MULTI_PAGE
 }
 
 let root = rootDocument(undefined, [
@@ -44,7 +61,8 @@ let root = rootDocument(undefined, [
                     latitude: number(),
                     longitude: number()
                 })
-            )
+            ),
+            trash: and(trash, map({abc: 123}))
         }, [
             collection("images", "imageId", {
                 relativeURI: string(),
@@ -52,9 +70,10 @@ let root = rootDocument(undefined, [
                 height: number(),
                 tags: unsafeList(),
                 width: number(),
-                userId: string([{field: "this"}, "==", "request.auth.id"])
+                trash
             }, [])
-            .allowFullAccessIf(allowOwnerRule),
+                .allowFullAccessIf(allowOwnerRule)
+            ,
             collection("products", "productId", {
                 name: string(),
                 type: enumValidation(null, ["basic", "group"]),
@@ -64,9 +83,9 @@ let root = rootDocument(undefined, [
                 childProducts: unsafeList(),
                 userId: string([{field: "this"}, "==", "request.auth.uid"])
             }, [])
-            .allowFullAccessIf(allowOwnerRule)
+                .allowFullAccessIf(allowOwnerRule)
         ])
-        .allowFullAccessIf(allowOwnerRule),
+            .allowFullAccessIf(allowOwnerRule),
         collection("productTemplates", "productTemplateId", {
             cropConstraintEnabled: boolean(),
             cropConstraintX: number(),
@@ -80,9 +99,18 @@ let root = rootDocument(undefined, [
             marginRight: number(),
             marginsEnabled: boolean(),
             name: string(),
+            type: nativeEnum(null, ProductTemplateTypes),
+            multiPageConfig: or(
+                nullable(),
+                map([{field: "type"}, "==", ProductTemplateTypes.MULTI_PAGE.toString()], {
+                    pageCount: number(),
+                    pageHeight: number(),
+                    pageWidth: number()
+                })
+            ),
             productionMedium: string()
         }, [])
-        .allowFullAccessIf(allowOwnerRule),
+            .allowFullAccessIf(allowOwnerRule),
 
         collection("stores", "storeId", {
             name: string(),
@@ -101,16 +129,24 @@ let root = rootDocument(undefined, [
                     stockLevelChange: number(),
                     stockAfterChange: number()
                 }, [])
-                .allowFullAccessIf(allowOwnerRule)
+                    .allowFullAccessIf(allowOwnerRule)
             ])
-            .allowFullAccessIf(allowOwnerRule)
+                .allowFullAccessIf(allowOwnerRule)
         ])
-        .allowFullAccessIf(allowOwnerRule)
+            .allowFullAccessIf(allowOwnerRule)
     ])
-    .allowFullAccessIf(allowOwnerRule)
+        .allowFullAccessIf(allowOwnerRule)
 ])
 
 writeFileSync("./firestore.rules", root.toString())
 export type Root = Infer<typeof root>
 let rootData: Root;
 // rootData.c.users.c.stores.c.stockLevels.c.history.f.stockAfterChange
+let test: typeof rootData.c.users.c.artworks.f = {
+    name: "test",
+    gpsCoordinates: {
+        latitude: 1,
+        longitude: 1
+    },
+    trash: null,
+}
