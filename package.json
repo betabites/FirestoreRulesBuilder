@@ -1,14 +1,33 @@
 {
   "name": "firestore-rules-builder",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    }
+  },
   "scripts": {
-    "test": "node __tests__/test.js"
+    "clean": "node --eval \"const fs = require('node:fs'); for (const path of ['dist', '.test-dist']) fs.rmSync(path, { recursive: true, force: true })\"",
+    "prebuild": "pnpm run clean",
+    "build": "tsc -p tsconfig.json",
+    "pretest": "pnpm run build",
+    "test": "tsc -p __tests__/tsconfig.json && node --test .test-dist/*.test.js",
+    "prepack": "pnpm test"
   },
   "author": "betabites",
   "license": "ISC",
-  "description": "",
+  "description": "A TypeScript builder for generating type-safe Cloud Firestore security rules.",
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "dist/"
   ],

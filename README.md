@@ -15,6 +15,8 @@ TypeScript-based tool for building secure Firestore rules
   * [Nested collections](#nested-collections)
   * [Defining additional schema rules](#defining-additional-schema-rules)
 * [Defining access rules](#defining-access-rules)
+* [Converting your schema to typescript types](#converting-your-schema-to-typescript-types)
+  * [Development](#development)
 <!-- TOC -->
 
 # Installation
@@ -215,3 +217,13 @@ These type definitions can get quite long. So to aid you, we've created this sho
 type IUser = IRoot["c"]["users"]["f"]
 type IUserData = IRoot["c"]["users"]["c"]["data"]["f"]
 ```
+
+## Development
+
+Install dependencies with `pnpm install`, then use:
+
+- `pnpm run build` to create a clean `dist/` with JavaScript and type declarations.
+- `pnpm test` to rebuild and run the regression suite.
+- `pnpm pack --dry-run` to run the publish checks and inspect the package contents.
+
+Tests are written in TypeScript, use Node's built-in test runner, and exercise the generated Firestore rules through the package's public API.
