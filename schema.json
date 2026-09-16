@@ -1,0 +1,240 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "definitions": {
+    "BaseField": {
+      "type": "object",
+      "required": [
+        "dataType"
+      ],
+      "properties": {
+        "dataType": {
+          "type": "string"
+        },
+        "isOptional": {
+          "type": "boolean"
+        }
+      }
+    },
+    "StringField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dataType": {
+              "const": "string"
+            }
+          }
+        }
+      ]
+    },
+    "NumberField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dataType": {
+              "const": "number"
+            }
+          }
+        }
+      ]
+    },
+    "BooleanField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dataType": {
+              "const": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "NullField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dataType": {
+              "const": "null"
+            }
+          }
+        }
+      ]
+    },
+    "TimestampField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dataType": {
+              "const": "timestamp"
+            }
+          }
+        }
+      ]
+    },
+    "GeopointField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dataType": {
+              "const": "geopoint"
+            }
+          }
+        }
+      ]
+    },
+    "ReferenceField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dataType": {
+              "const": "reference"
+            }
+          }
+        }
+      ]
+    },
+    "ArrayField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "required": [
+            "fields"
+          ],
+          "properties": {
+            "dataType": {
+              "const": "array"
+            },
+            "types": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/BasicFieldTypes"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MapField": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BaseField"
+        },
+        {
+          "type": "object",
+          "required": [
+            "fields"
+          ],
+          "properties": {
+            "dataType": {
+              "const": "map"
+            },
+            "fields": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/BasicFieldTypes"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "BasicFieldTypes": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/StringField"
+        },
+        {
+          "$ref": "#/definitions/NumberField"
+        },
+        {
+          "$ref": "#/definitions/NullField"
+        },
+        {
+          "$ref": "#/definitions/TimestampField"
+        },
+        {
+          "$ref": "#/definitions/GeopointField"
+        },
+        {
+          "$ref": "#/definitions/ReferenceField"
+        },
+        {
+          "$ref": "#/definitions/MapField"
+        },
+        {
+          "$ref": "#/definitions/ArrayField"
+        }
+      ]
+    },
+    "Collection": {
+      "type": "object",
+      "required": [
+        "fields"
+      ],
+      "properties": {
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/BasicFieldTypes"
+          }
+        },
+        "collections": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Collection"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "required": [
+    "collections"
+  ],
+  "properties": {
+    "collections": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/Collection"
+          }
+        ]
+      }
+    }
+  }
+}

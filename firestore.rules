@@ -1,0 +1,317 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      function isValidSchema(data) {
+        return (
+            data.keys().hasAll(['_id', 'colourTheme', 'printCalibrationHeight', 'printCalibrationWidth', 'storage'])
+            && data.keys().hasOnly(['_id', 'colourTheme', 'printCalibrationHeight', 'printCalibrationWidth', 'storage'])
+          && data._id is string
+          && data.colourTheme is number
+          && data.printCalibrationHeight is number
+          && data.printCalibrationWidth is number
+            && (
+              data.storage is map
+                && (
+                    data.storage.keys().hasAll(['available', 'used'])
+                    && data.storage.keys().hasOnly(['available', 'used'])
+                  && data.storage.available is number
+                  && data.storage.used is number
+                )
+            )
+        );
+      }
+      allow get: if userId == request.auth.uid;
+      allow create: if (
+          userId == request.auth.uid
+        && isValidSchema(request.resource.data)
+      );
+      allow update: if (
+        isValidSchema(request.resource.data)
+        && userId == request.auth.uid
+        && userId == request.auth.uid
+      );
+      allow list: if (
+        userId == request.auth.uid
+      );
+      allow delete: if (
+        userId == request.auth.uid
+      );
+      match /artworks/{artworkId} {
+        function isValidSchema(data) {
+          return (
+              data.keys().hasAll(['name', 'gpsCoordinates'])
+              && data.keys().hasOnly(['name', 'gpsCoordinates', 'trash'])
+            && data.name is string
+              && (
+                  data.gpsCoordinates == null
+                  || (
+                    data.gpsCoordinates is map
+                      && (
+                          data.gpsCoordinates.keys().hasAll(['latitude', 'longitude'])
+                          && data.gpsCoordinates.keys().hasOnly(['latitude', 'longitude'])
+                        && data.gpsCoordinates.latitude is number
+                        && data.gpsCoordinates.longitude is number
+                      )
+                  )
+              )
+              && (
+                  !(
+                  "trash" in data
+                  )
+                  || (
+                      data.trash == null
+                    || data.trash is timestamp
+                  )
+              )
+          );
+        }
+        allow get: if userId == request.auth.uid;
+        allow create: if (
+            userId == request.auth.uid
+          && isValidSchema(request.resource.data)
+        );
+        allow update: if (
+          isValidSchema(request.resource.data)
+          && userId == request.auth.uid
+          && userId == request.auth.uid
+        );
+        allow list: if (
+          userId == request.auth.uid
+        );
+        allow delete: if (
+          userId == request.auth.uid
+        );
+        match /images/{imageId} {
+          function isValidSchema(data) {
+            return (
+                data.keys().hasAll(['relativeURI', 'childImages', 'height', 'tags', 'width', 'userId'])
+                && data.keys().hasOnly(['relativeURI', 'childImages', 'height', 'tags', 'width', 'userId', 'trash'])
+              && data.relativeURI is string
+              && data.childImages is list
+              && data.height is number
+              && data.tags is list
+              && data.width is number
+                && (
+                  data.userId is string
+                  && data.userId == request.auth.uid
+                )
+                && (
+                    !(
+                    "trash" in data
+                    )
+                    || (
+                        data.trash == null
+                      || data.trash is timestamp
+                    )
+                )
+            );
+          }
+          allow get: if resource.data.userId == request.auth.uid;
+          allow create: if (
+              request.resource.data.userId == request.auth.uid
+            && isValidSchema(request.resource.data)
+          );
+          allow update: if (
+            isValidSchema(request.resource.data)
+            && resource.datauserId == request.auth.uid
+            && request.resource.data.userId == request.auth.uid
+          );
+          allow list: if (
+            request.resource.data.userId == request.auth.uid
+          );
+          allow delete: if (
+            request.resource.data.userId == request.auth.uid
+          );
+        }
+        match /products/{productId} {
+          function isValidSchema(data) {
+            return (
+                data.keys().hasAll(['name', 'type', 'childProducts', 'userId'])
+                && data.keys().hasOnly(['name', 'type', 'printCount', 'productTemplate', 'artworkImage', 'childProducts', 'userId'])
+              && data.name is string
+              && data.type in ["basic","group"]
+                && (
+                    !(
+                    "printCount" in data
+                    )
+                  || data.printCount is number
+                )
+                && (
+                    !(
+                    "productTemplate" in data
+                    )
+                  || data.productTemplate is path
+                )
+                && (
+                    !(
+                    "artworkImage" in data
+                    )
+                  || data.artworkImage is path
+                )
+              && data.childProducts is list
+                && (
+                  data.userId is string
+                  && data.userId == request.auth.uid
+                )
+            );
+          }
+          allow get: if resource.data.userId == request.auth.uid;
+          allow create: if (
+              request.resource.data.userId == request.auth.uid
+            && isValidSchema(request.resource.data)
+          );
+          allow update: if (
+            isValidSchema(request.resource.data)
+            && resource.datauserId == request.auth.uid
+            && request.resource.data.userId == request.auth.uid
+          );
+          allow list: if (
+            request.resource.data.userId == request.auth.uid
+          );
+          allow delete: if (
+            request.resource.data.userId == request.auth.uid
+          );
+        }
+      }
+      match /productTemplates/{productTemplateId} {
+        function isValidSchema(data) {
+          return (
+              data.keys().hasAll(['cropConstraintEnabled', 'cropConstraintX', 'cropConstraintY', 'fitToPage', 'includeArtworkImage', 'includesSignature', 'marginBottom', 'marginLeft', 'marginTop', 'marginRight', 'marginsEnabled', 'name', 'type', 'multiPageConfig', 'productionMedium'])
+              && data.keys().hasOnly(['cropConstraintEnabled', 'cropConstraintX', 'cropConstraintY', 'fitToPage', 'includeArtworkImage', 'includesSignature', 'marginBottom', 'marginLeft', 'marginTop', 'marginRight', 'marginsEnabled', 'name', 'type', 'multiPageConfig', 'productionMedium'])
+            && data.cropConstraintEnabled is bool
+            && data.cropConstraintX is number
+            && data.cropConstraintY is number
+            && data.fitToPage is bool
+            && data.includeArtworkImage is bool
+            && data.includesSignature is bool
+            && data.marginBottom is number
+            && data.marginLeft is number
+            && data.marginTop is number
+            && data.marginRight is number
+            && data.marginsEnabled is bool
+            && data.name is string
+            && data.type in ["FIXED","MULTI_PAGE",0,1]
+              && (
+                  data.multiPageConfig == null
+                  || (
+                    data.multiPageConfig is map
+                    && data.type == 1
+                      && (
+                          data.multiPageConfig.keys().hasAll(['pageCount', 'pageHeight', 'pageWidth'])
+                          && data.multiPageConfig.keys().hasOnly(['pageCount', 'pageHeight', 'pageWidth'])
+                        && data.multiPageConfig.pageCount is number
+                        && data.multiPageConfig.pageHeight is number
+                        && data.multiPageConfig.pageWidth is number
+                      )
+                  )
+              )
+            && data.productionMedium is string
+          );
+        }
+        allow get: if userId == request.auth.uid;
+        allow create: if (
+            userId == request.auth.uid
+          && isValidSchema(request.resource.data)
+        );
+        allow update: if (
+          isValidSchema(request.resource.data)
+          && userId == request.auth.uid
+          && userId == request.auth.uid
+        );
+        allow list: if (
+          userId == request.auth.uid
+        );
+        allow delete: if (
+          userId == request.auth.uid
+        );
+      }
+      match /stores/{storeId} {
+        function isValidSchema(data) {
+          return (
+              data.keys().hasAll(['name', 'type'])
+              && data.keys().hasOnly(['name', 'type'])
+            && data.name is string
+            && data.type in ["BASIC_ONLINE","BASIC_PHYSICAL",0,1]
+          );
+        }
+        allow get: if userId == request.auth.uid;
+        allow create: if (
+            userId == request.auth.uid
+          && isValidSchema(request.resource.data)
+        );
+        allow update: if (
+          isValidSchema(request.resource.data)
+          && userId == request.auth.uid
+          && userId == request.auth.uid
+        );
+        allow list: if (
+          userId == request.auth.uid
+        );
+        allow delete: if (
+          userId == request.auth.uid
+        );
+        match /stockLevels/{stockLevelId} {
+          function isValidSchema(data) {
+            return (
+                data.keys().hasAll(['stockLevel', 'inventory', 'product', 'stockLevelAdjustAdd', 'stockLevelAdjustSell', 'userId'])
+                && data.keys().hasOnly(['stockLevel', 'inventory', 'product', 'stockLevelAdjustAdd', 'stockLevelAdjustSell', 'userId'])
+              && data.stockLevel is number
+              && data.inventory is number
+              && data.product is path
+              && data.stockLevelAdjustAdd is number
+              && data.stockLevelAdjustSell is number
+                && (
+                  data.userId is string
+                  && data.userId == request.auth.uid
+                )
+            );
+          }
+          allow get: if resource.data.userId == request.auth.uid;
+          allow create: if (
+              request.resource.data.userId == request.auth.uid
+            && isValidSchema(request.resource.data)
+          );
+          allow update: if (
+            isValidSchema(request.resource.data)
+            && resource.datauserId == request.auth.uid
+            && request.resource.data.userId == request.auth.uid
+          );
+          allow list: if (
+            request.resource.data.userId == request.auth.uid
+          );
+          allow delete: if (
+            request.resource.data.userId == request.auth.uid
+          );
+          match /history/{historyId} {
+            function isValidSchema(data) {
+              return (
+                  data.keys().hasAll(['timestamp', 'stockLevelChange', 'stockAfterChange'])
+                  && data.keys().hasOnly(['timestamp', 'stockLevelChange', 'stockAfterChange'])
+                && data.timestamp is timestamp
+                && data.stockLevelChange is number
+                && data.stockAfterChange is number
+              );
+            }
+            allow get: if userId == request.auth.uid;
+            allow create: if (
+                userId == request.auth.uid
+              && isValidSchema(request.resource.data)
+            );
+            allow update: if (
+              isValidSchema(request.resource.data)
+              && userId == request.auth.uid
+              && userId == request.auth.uid
+            );
+            allow list: if (
+              userId == request.auth.uid
+            );
+            allow delete: if (
+              userId == request.auth.uid
+            );
+          }
+        }
+      }
+    }
+  }
+}

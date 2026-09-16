@@ -5,3 +5,4 @@
 /src/rulesToString.js
 .pnpm-store
 node_modules
+dist
