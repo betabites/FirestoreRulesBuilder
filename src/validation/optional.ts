@@ -13,7 +13,7 @@ export function optional<DATA_TYPE>(validation: RequiredValidationFunction<DATA_
                         type: "not",
                         conditions: [[JSON.stringify(currentFieldName), "in", resourcePath.substring(0, resourcePath.length - 1)]]
                     },
-                    validation(resourcePath, field)
+                    validation(resourcePath, field, currentFieldName)
                 ]
             })
         },

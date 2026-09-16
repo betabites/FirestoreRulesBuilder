@@ -3,3 +3,5 @@
 /__tests__/test.js
 /src/removeBlankConditions.js
 /src/rulesToString.js
+.pnpm-store
+node_modules

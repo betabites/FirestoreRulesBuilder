@@ -78,7 +78,6 @@ let root = rootDocument(undefined, [
                 trash
             }, [])
                 .allowFullAccessIf(allowOwnerRuleCollectionGroups)
-                .collectionGroup()
             ,
             collection("products", "productId", {
                 name: string(),
